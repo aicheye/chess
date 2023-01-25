@@ -9,6 +9,7 @@ fileDict = {"a" : 0, "b" : 1, "c" : 2, "d" : 3, "e" : 4, "f" : 5, "g" : 6, "h" :
 # images of the pieces
 images = {}
 
+
 # clears board to empty - used for FEN
 def clearBoard() :
     return [[30, 30, 30, 30, 30, 30, 30, 30],
@@ -79,11 +80,9 @@ def parseFen(fen) :
         canCastle[2] = True
     if "q" in indexed[2] :
         canCastle[3] = True
-    if indexed[3] == "-" :
-        enPassant = [None, None]
-    else :
-        enPassant = [int(indexed[3][1]), fileDict[indexed[3][0]]]
-    return position, colour, canCastle, enPassant, halfmove, fullmove
+    if indexed[3] != "-" :
+        position[int(indexed[3][1])][fileDict[indexed[3][0]]] = colour + 7
+    return position, colour, canCastle, halfmove, fullmove
 
 
 # checks if a move is legal - placeholder for now
@@ -189,9 +188,13 @@ def displayTextPosition(position) :
     print("      a b c d e f g h")
 
 
+# GUI is thx to Eddie Sharick (YouTube) https://www.youtube.com/watch?v=EnYui0e73Rs&list=PLBwF487qi8MGU81nDGaeNE1EnNEPYWKY_&ab_channel=EddieSharick
 def GUI(board) :
+    # pygame is initialized
     pygame.init()
+    # window is initialized
     screen = pygame.display.set_mode(size=(800, 800))
+    # system clock is initialized
     clock = pygame.time.Clock()
     screen.fill(pygame.Color("white"))
     running = True
@@ -206,11 +209,13 @@ def GUI(board) :
         pygame.display.flip()
 
 
+# function to combine drawBoard and drawPieces
 def drawPosition(screen, position) :
     drawBoard(screen)
     drawPieces(screen, position)
 
 
+# function to draw a board
 def drawBoard(screen) :
     colours = [pygame.Color("white"), pygame.Color("tan")]
     for rank in range(8) :
@@ -224,7 +229,8 @@ def drawPieces(screen, position) :
         for file in range(8) :
             piece = str(position[rank][file])
             if piece != "30" :
-                screen.blit(pygame.transform.scale(pygame.image.load("pieces/" + piece + ".png"), (90, 90)), pygame.Rect(file * 100 + 5, rank * 100 + 5, 100, 100))
+                screen.blit(pygame.transform.scale(pygame.image.load("images/" + piece + ".png"), (90, 90)),
+                            pygame.Rect(file * 100 + 5, rank * 100 + 5, 100, 100))
 
 
 # basic PVP mechanics - rules parameter can be used for implementing multiple game modes
