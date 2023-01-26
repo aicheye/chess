@@ -115,21 +115,20 @@ def isCheck(position, colour) :
 
 
 # function to find pawn attacks
-def findPawnAttacks(position, piecePos, colour=None) :
-    if colour is None :
-        colour = int(str(position[piecePos[0]][piecePos[1]])[0]) * 10
+def findPawnAttacks(position, piecePos) :
+    colour = int(str(position[piecePos[0]][piecePos[1]])[0]) * 10
     squares = []
     # runs if the colour is white
     if colour == 10 :
         # performs the left diagonal check if it is not beyond the board
-        if piecePos[0] + 1 <= 7 and piecePos[1] - 1 <= 7:
+        if piecePos[0] + 1 >= 0 and piecePos[1] - 1 >= 0:
             leftID = position[piecePos[0] + 1][piecePos[1] - 1]
             leftPos = [piecePos[0] + 1, piecePos[1] - 1]
             # if the square is empty or a black piece, it is marked
             if leftID == 30 or str(leftID)[0] == "2" :
                 squares.append(leftPos)
         # performs the right diagonal check if it is not beyond the board
-        if piecePos[0] + 1 <= 7 and piecePos[1] + 1 <= 7:
+        if piecePos[0] + 1 >= 0 and piecePos[1] + 1 >= 0:
             rightID = position[piecePos[0] + 1][piecePos[1] + 1]
             rightPos = [piecePos[0] + 1, piecePos[1] + 1]
             # if the square is empty or a black piece, it is marked
@@ -154,6 +153,23 @@ def findPawnAttacks(position, piecePos, colour=None) :
     return squares
 
 
+def findKnightAttacks(position, piecePos) :
+    colour = int(str(position[piecePos[0]][piecePos[1]])[0]) * 10
+    if colour == 10 :
+        oppositeColour = 20
+    else :
+        oppositeColour = 10
+    squares = []
+    directions = [[2, 1], [1, 2], [-1, 2], [-2, 1], [-2, -1], [-1, -2], [1, -2], [2, -1]]
+    for i in range(8) :
+        if 0 <= piecePos[0] + directions[i][0] <= 7 and 0 <= piecePos[1] + directions[i][1] <= 7:
+            destinationID = position[piecePos[0] + directions[i][0]][piecePos[1] + directions[i][1]]
+            destinationPos = [piecePos[0] + directions[i][0], piecePos[1] + directions[i][1]]
+            if destinationID == 30 or str(destinationID)[0] == str(oppositeColour)[0] :
+                squares.append(destinationPos)
+    return squares
+
+
 # recursive function to find diagonal attacks
 def findBishopAttacks(position, piecePos, colour=None, square=None, direction=None, squares=None) :
     if colour is None :
@@ -163,18 +179,18 @@ def findBishopAttacks(position, piecePos, colour=None, square=None, direction=No
         square = piecePos
     if direction is None or direction == [1, 1] :
         direction = [1, 1]
-        nextDirection = [1, -1]
-    elif direction == [1, -1] :
+        nextDirection = [-1, 1]
+    elif direction == [-1, 1] :
         nextDirection = [-1, -1]
     elif direction == [-1, -1] :
-        nextDirection = [-1, 1]
+        nextDirection = [1, -1]
     if squares is None :
         # this list will be used to keep track of all squares that are being attacked
         squares = []
     # if the square that this function will travel to next is not on the board, the direction is switched and position is reset
     if square[0] + direction[0] > 7 or square[0] + direction[0] < 0 or square[1] + direction[1] > 7 or square[1] + \
             direction[1] < 0 :
-        if direction != [-1, 1] :
+        if direction != [1, -1] :
             return findBishopAttacks(position, piecePos, colour, piecePos, nextDirection, squares)
         else :
             return squares
@@ -190,13 +206,13 @@ def findBishopAttacks(position, piecePos, colour=None, square=None, direction=No
                 return squares
         # if the square in the direction of travel is its own, it resets to the original square and switches direction
         elif str(newSquareID)[0] == str(colour // 10) :
-            if direction != [-1, 1] :
+            if direction != [1, -1] :
                 return findBishopAttacks(position, piecePos, colour, piecePos, nextDirection, squares)
             else :
                 return squares
             # if the square in the direction of travel is not its own, it attacks that square, resets to the original square and switches direction
         else :
-            if direction != [-1, 1] :
+            if direction != [1, -1] :
                 squares.append(newSquarePos)
                 return findBishopAttacks(position, piecePos, colour, piecePos, nextDirection, squares)
             else :
@@ -264,6 +280,23 @@ def findQueenAttacks(position, piecePos) :
     return squares
 
 
+def findKingAttacks(position, piecePos) :
+    colour = int(str(position[piecePos[0]][piecePos[1]])[0]) * 10
+    if colour == 10 :
+        oppositeColour = 20
+    else :
+        oppositeColour = 10
+    squares = []
+    directions = [[1, 0], [1, 1], [0, 1], [1, -1], [-1, 0], [-1, -1], [0, -1], [-1, 1]]
+    for i in range(8) :
+        if 0 <= piecePos[0] + directions[i][0] <= 7 and 0 <= piecePos[1] + directions[i][1] <= 7 :
+            destinationID = position[piecePos[0] + directions[i][0]][piecePos[1] + directions[i][1]]
+            destinationPos = [piecePos[0] + directions[i][0], piecePos[1] + directions[i][1]]
+            if destinationID == 30 or str(destinationID)[0] == str(oppositeColour)[0] :
+                squares.append(destinationPos)
+    return squares
+
+
 # GUI is thx to Eddie Sharick (YouTube) https://www.youtube.com/watch?v=EnYui0e73Rs&list=PLBwF487qi8MGU81nDGaeNE1EnNEPYWKY_&ab_channel=EddieSharick
 def GUI(board) :
     # pygame is initialized
@@ -311,4 +344,4 @@ def drawPieces(screen, position) :
 
 # driver code
 if __name__ == '__main__' :
-    print(len(findQueenAttacks(parseFen("rnb1k1nr/pp3ppp/2p1pq2/3p4/1b3R1P/8/PPPPPPP1/RNBQKBN1 w Qkq - 2 6", True), [5, 5])))
+    print(len(findKingAttacks(parseFen("rnbq1bnr/pppp1ppp/8/1N4pk/6P1/2P5/PP1PP1PP/R1BQKBNR w KQ - 0 1", True), [4, 7])))
