@@ -10,7 +10,7 @@ fileDict = {"a" : 0, "b" : 1, "c" : 2, "d" : 3, "e" : 4, "f" : 5, "g" : 6, "h" :
 images = {}
 
 
-# clears board to empty - used for FEN
+# clears board to empty - used for some functions
 def clearBoard() :
     return [[30, 30, 30, 30, 30, 30, 30, 30],
             [30, 30, 30, 30, 30, 30, 30, 30],
@@ -35,7 +35,7 @@ def startBoard() :
 
 
 # function to parse fen codes - used to load positions
-def parseFen(fen) :
+def parseFen(fen, posOnly=False) :
     # these are variables for all the FEN fields
     position = clearBoard()
     indexed = fen.split()
@@ -44,29 +44,31 @@ def parseFen(fen) :
     halfmove = int(indexed[4])
     fullmove = int(indexed[5])
     scrolling = True
-    rank = 7
+    rankFen = 7
+    rank = 0
     # iterates through the FEN placement notation to construct a board
     while scrolling :
         file = 0
         increment = 0
         placing = True
         while placing :
-            if placements[rank][increment].upper() not in pieceDict :
-                file += int(placements[rank][increment])
-            elif placements[rank][increment].isupper() :
-                position[rank][file] = pieceDict[placements[rank][increment]] + 10
+            if placements[rankFen][increment].upper() not in pieceDict :
+                file += int(placements[rankFen][increment])
+            elif placements[rankFen][increment].isupper() :
+                position[rank][file] = pieceDict[placements[rankFen][increment]] + 10
                 file += 1
             else :
-                position[rank][file] = pieceDict[placements[rank][increment].upper()] + 20
+                position[rank][file] = pieceDict[placements[rankFen][increment].upper()] + 20
                 file += 1
             if file == 8 :
                 placing = False
             else :
                 increment += 1
-        if rank == 0 :
+        if rank == 7 :
             scrolling = False
         else :
-            rank -= 1
+            rankFen -= 1
+            rank += 1
     if indexed[1] == "w" :
         colour = 10
     else :
@@ -82,110 +84,184 @@ def parseFen(fen) :
         canCastle[3] = True
     if indexed[3] != "-" :
         position[int(indexed[3][1])][fileDict[indexed[3][0]]] = colour + 7
-    return position, colour, canCastle, halfmove, fullmove
+    if not posOnly :
+        return position, colour, canCastle, halfmove, fullmove
+    else :
+        return position
 
 
-# checks if a move is legal - placeholder for now
-def isLegal(piece, start, destination, special) :
+# returns a list of all legal moves in a given position
+def findMoves(position, colour) :
+    moves = []
+    return moves
+
+
+# checks if a move ends the game
+def doesGameEnd(position, colour, repetitionCount) :
+    if len(findMoves(position, colour)) == 0 :
+        if isCheck(position, colour) :
+            return "checkmate"
+        else :
+            return "stalemate"
+    else :
+        if repetitionCount == 3 :
+            return "stalemate"
+        return False
+
+
+# checks if a move causes check
+def isCheck(position, colour) :
     return True
 
 
-# checks if a move causes checkmate
-def isCheckmate(position) :
-    return True
+# function to find pawn attacks
+def findPawnAttacks(position, piecePos, colour=None) :
+    if colour is None :
+        colour = int(str(position[piecePos[0]][piecePos[1]])[0]) * 10
+    squares = []
+    # runs if the colour is white
+    if colour == 10 :
+        # performs the left diagonal check if it is not beyond the board
+        if piecePos[0] + 1 <= 7 and piecePos[1] - 1 <= 7:
+            leftID = position[piecePos[0] + 1][piecePos[1] - 1]
+            leftPos = [piecePos[0] + 1, piecePos[1] - 1]
+            # if the square is empty or a black piece, it is marked
+            if leftID == 30 or str(leftID)[0] == "2" :
+                squares.append(leftPos)
+        # performs the right diagonal check if it is not beyond the board
+        if piecePos[0] + 1 <= 7 and piecePos[1] + 1 <= 7:
+            rightID = position[piecePos[0] + 1][piecePos[1] + 1]
+            rightPos = [piecePos[0] + 1, piecePos[1] + 1]
+            # if the square is empty or a black piece, it is marked
+            if rightID == 30 or str(rightID)[0] == "2" :
+                squares.append(rightPos)
+    # runs if the colour is black
+    else :
+        # performs the left diagonal check if it is not beyond the board
+        if piecePos[0] - 1 <= 7 and piecePos[1] - 1 <= 7:
+            leftID = position[piecePos[0] - 1][piecePos[1] - 1]
+            leftPos = [piecePos[0] - 1, piecePos[1] - 1]
+            # if the square is empty or a white piece, it is marked
+            if leftID == 30 or str(leftID)[0] == "1" :
+                squares.append(leftPos)
+        # performs the right diagonal check if it is not beyond the board
+        if piecePos[0] - 1 <= 7 and piecePos[1] + 1 <= 7:
+            rightID = position[piecePos[0] - 1][piecePos[1] + 1]
+            rightPos = [piecePos[0] - 1, piecePos[1] + 1]
+            # if the square is empty or a white piece, it is marked
+            if rightID == 30 or str(rightID)[0] == "1" :
+                squares.append(rightPos)
+    return squares
 
 
-# confirm move on board - this is separate from sendMove to (hopefully) make implementing chess bots easier
-def move(position, piece, start, destination, special="-1") :
-    # first checks if move is legal
-    if isLegal(piece, start, destination, special) :
-        # clears any en passant target squares
-        for i in range(8) :
-            if position[2][i] == 17 :
-                position[2][i] = 30
-            if position[5][i] == 27 :
-                position[5][i] = 30
-        # default state, no special moves
-        if special == "-1" :
-            position[start[0]][start[1]] = 30  # starting square of that piece is reset to empty
-            position[destination[0]][destination[1]] = piece  # destination square is set to the piece
-            # if the pawn is pushed 2 spaces, an en passant target square is created
-            if piece == 11 and destination[0] - start[0] == 2 :
-                position[destination[0] - 1][destination[1]] = 17
-            if piece == 21 and destination[0] - start[0] == 2 :
-                position[destination[0] + 1][destination[1]] = 27
-            return position
-        # castling
-        elif special == "short" :
-            position[start[0]][start[1]] = 30  # starting square of the king is cleared
-            position[destination[0]][destination[1]] = piece  # destination square of the king is set
-            position[destination[0]][destination[1] + 1] = 30
-            position[destination[0]][destination[1] - 1] = 10 * int(str(piece)[0]) + pieceDict["R"]  # castles
-            return position
-        elif special == "long" :
-            position[start[0]][start[1]] = 30  # starting square of the king is cleared
-            position[destination[0]][destination[1]] = piece  # destination square of the king is set
-            position[destination[0]][destination[1] - 2] = 30
-            position[destination[0]][destination[1] + 1] = 10 * int(str(piece)[0]) + pieceDict["R"]  # castles
-            return position
-        # promotion
-        elif str(special)[1] in reversePieceDict :
-            position[start[0]][start[1]] = 30  # starting square of the pawn is set to empty
-            position[destination[0]][destination[1]] = special  # destination square is set to the piece
-            return position
-        # handles en passant
-        elif special == "en passant" :
-            position[start[0]][start[1]] = 30  # starting square of the pawn  is reset to empty
-            position[destination[0]][destination[1]] = piece  # destination square is set to the piece
-            if str(piece)[0] == "1" :
-                position[destination[0] - 1][destination[1]] = 30  # pawn is captured
-            if str(piece)[0] == "2" :
-                position[destination[0] + 1][destination[1]] = 30  # pawn is captured
-            return position
-
-
-# function to parse user inputs for the move function
-def sendMove(board, string, player) :
-    indexed = [string[0], string[1 :3], string[3 :5]]  # creates an easier to parse list of the args
-    sending = [-1, [-1, -1], [-1, -1], "-1"]  # empty placeholder list
-    sending[0] = pieceDict[indexed[0].upper()] + player  # finds the correct piece that the player wants to move
-    sending[1][0] = int(indexed[1][1]) - 1  # finds the rank of the start
-    sending[1][1] = fileDict[indexed[1][0]]  # file of start
-    sending[2][0] = int(indexed[2][1]) - 1  # rank of destination
-    sending[2][1] = fileDict[indexed[2][0]]  # file of destination
-    if sending[0] == 16 and sending[1] == [0, 4] and sending[2] == [0, 6] :
-        sending[3] = "short"
-    elif sending[0] == 26 and sending[1] == [7, 4] and sending[2] == [7, 6] :
-        sending[3] = "short"
-    elif sending[0] == 16 and sending[1] == [0, 4] and sending[2] == [0, 2] :
-        sending[3] = "long"
-    elif sending[0] == 26 and sending[1] == [7, 4] and sending[2] == [7, 2] :
-        sending[3] = "long"
-    elif str(sending[0])[1] == "1" and \
-            abs(sending[2][0] - sending[1][0]) == 1 and \
-            abs(sending[2][1] - sending[1][1]) == 1 and \
-            (board[sending[2][0]][sending[2][1]] == 17 or
-             board[sending[2][0]][sending[2][1]] == 27) :
-        sending[3] = "en passant"
-    elif len(string) == 6 :
-        sending[3] = pieceDict[string[3]] + player
-    return move(board, sending[0], sending[1], sending[2], sending[3])
-
-
-# prints the current chess board (GUI stand-in), iterates through every board piece to print the correct symbol
-def displayTextPosition(position) :
-    for i in range(8) :
-        print("    ", end="")
-        print(i + 1, end=" ")
-        for j in range(8) :
-            if str(position[i][j])[0] == "1" :
-                print("\033[1m" + reversePieceDict[int(str(position[i][j])[1])] + "\033[0m", end=" ")
-            elif str(position[i][j])[0] == "2" :
-                print("\033[36m\033[1m" + reversePieceDict[int(str(position[i][j])[1])] + "\033[0m", end=" ")
+# recursive function to find diagonal attacks
+def findBishopAttacks(position, piecePos, colour=None, square=None, direction=None, squares=None) :
+    if colour is None :
+        colour = int(str(position[piecePos[0]][piecePos[1]])[0]) * 10
+    nextDirection = []
+    if square is None :
+        square = piecePos
+    if direction is None or direction == [1, 1] :
+        direction = [1, 1]
+        nextDirection = [1, -1]
+    elif direction == [1, -1] :
+        nextDirection = [-1, -1]
+    elif direction == [-1, -1] :
+        nextDirection = [-1, 1]
+    if squares is None :
+        # this list will be used to keep track of all squares that are being attacked
+        squares = []
+    # if the square that this function will travel to next is not on the board, the direction is switched and position is reset
+    if square[0] + direction[0] > 7 or square[0] + direction[0] < 0 or square[1] + direction[1] > 7 or square[1] + \
+            direction[1] < 0 :
+        if direction != [-1, 1] :
+            return findBishopAttacks(position, piecePos, colour, piecePos, nextDirection, squares)
+        else :
+            return squares
+    else :
+        newSquareID = position[square[0] + direction[0]][square[1] + direction[1]]
+        newSquarePos = [square[0] + direction[0], square[1] + direction[1]]
+        # if the square in the direction of travel is empty, it "walks" to that square and recurses
+        if newSquareID == 30 :
+            if newSquarePos not in squares :
+                squares.append(newSquarePos)
+                return findBishopAttacks(position, piecePos, colour, newSquarePos, direction, squares)
             else :
-                print(".", end=" ")
-        print("")
-    print("      a b c d e f g h")
+                return squares
+        # if the square in the direction of travel is its own, it resets to the original square and switches direction
+        elif str(newSquareID)[0] == str(colour // 10) :
+            if direction != [-1, 1] :
+                return findBishopAttacks(position, piecePos, colour, piecePos, nextDirection, squares)
+            else :
+                return squares
+            # if the square in the direction of travel is not its own, it attacks that square, resets to the original square and switches direction
+        else :
+            if direction != [-1, 1] :
+                squares.append(newSquarePos)
+                return findBishopAttacks(position, piecePos, colour, piecePos, nextDirection, squares)
+            else :
+                squares.append(newSquarePos)
+                return squares
+
+
+# recursive function to find horizontal and vertical attacks
+def findRookAttacks(position, piecePos, colour=None, square=None, direction=None, squares=None) :
+    if colour is None :
+        colour = int(str(position[piecePos[0]][piecePos[1]])[0]) * 10
+    nextDirection = []
+    if square is None :
+        square = piecePos
+    if direction is None or direction == [1, 0] :
+        direction = [1, 0]
+        nextDirection = [0, 1]
+    elif direction == [0, 1] :
+        nextDirection = [-1, 0]
+    elif direction == [-1, 0] :
+        nextDirection = [0, -1]
+    if squares is None :
+        squares = []
+    if square[0] + direction[0] > 7 or square[0] + direction[0] < 0 or square[1] + direction[1] > 7 or square[1] + \
+            direction[1] < 0 :
+        if direction != [0, -1] :
+            return findRookAttacks(position, piecePos, colour, piecePos, nextDirection, squares)
+        else :
+            return squares
+    else :
+        newSquareID = position[square[0] + direction[0]][square[1] + direction[1]]
+        newSquarePos = [square[0] + direction[0], square[1] + direction[1]]
+        # if the square in the direction of travel is empty, it "walks" to that square and recurses
+        if newSquareID == 30 :
+            if newSquarePos not in squares :
+                squares.append(newSquarePos)
+                return findRookAttacks(position, piecePos, colour, newSquarePos, direction, squares)
+            else :
+                return squares
+        # if the square in the direction of travel is its own, it resets to the original square and switches direction
+        elif str(newSquareID)[0] == str(colour // 10) :
+            if direction != [0, -1] :
+                return findRookAttacks(position, piecePos, colour, piecePos, nextDirection, squares)
+            else :
+                return squares
+            # if the square in the direction of travel is not its own, it attacks that square, resets to the original square and switches direction
+        else :
+            if direction != [0, -1] :
+                squares.append(newSquarePos)
+                return findRookAttacks(position, piecePos, colour, piecePos, nextDirection, squares)
+            else :
+                squares.append(newSquarePos)
+                return squares
+
+
+# simple function to find queen attacks combining the rook and bishop
+def findQueenAttacks(position, piecePos) :
+    squares = []
+    lines = findRookAttacks(position, piecePos)
+    diagonals = findBishopAttacks(position, piecePos)
+    for i in range(len(lines)) :
+        squares.append(lines[i])
+    for i in range(len(diagonals)) :
+        squares.append(diagonals[i])
+    return squares
 
 
 # GUI is thx to Eddie Sharick (YouTube) https://www.youtube.com/watch?v=EnYui0e73Rs&list=PLBwF487qi8MGU81nDGaeNE1EnNEPYWKY_&ab_channel=EddieSharick
@@ -233,28 +309,6 @@ def drawPieces(screen, position) :
                             pygame.Rect(file * 100 + 5, rank * 100 + 5, 100, 100))
 
 
-# basic PVP mechanics - rules parameter can be used for implementing multiple game modes
-def startGame(rules="default") :
-    board = startBoard()
-    playing = True
-    turn = 1
-    player = 10
-    while playing :
-        print("\n\n---------------------------\n\n   ", end="")
-        if player == 10 :
-            print("\033[1mWHITE\033[0m to move " + "(turn " + str(turn) + ")", end="\n\n")
-        else :
-            print("\033[36m\033[1mBLACK\033[0m to move " + "(turn " + str(turn) + ")", end="\n\n")
-        displayTextPosition(board)
-        print("")
-        board = sendMove(board, input("     Input move: "), player)
-        if player == 10 :
-            player = 20
-        else :
-            player = 10
-        turn += 1
-
-
 # driver code
 if __name__ == '__main__' :
-    GUI(parseFen("r6r/1b2k1bq/8/8/7B/8/8/R3K2R b KQ - 3 2")[0])
+    print(len(findQueenAttacks(parseFen("rnb1k1nr/pp3ppp/2p1pq2/3p4/1b3R1P/8/PPPPPPP1/RNBQKBN1 w Qkq - 2 6", True), [5, 5])))
