@@ -109,9 +109,21 @@ def doesGameEnd(position, colour, repetitionCount) :
         return False
 
 
-# checks if a move causes check
+# checks if position is in check for a colour
 def isCheck(position, colour) :
-    return True
+    attacked = clearBoard()
+    for rank in range(8) :
+        for file in range(8) :
+            if position[rank][file] != 30 and position[rank][file] != 17 and position[rank][file] != 27 and str(position[rank][file])[0] != str(colour // 10):
+                pieceAttacks = findStaticAttacks(position, [rank, file])
+                # for every square under attack, the corresponding square in the board "attacked" is also 99
+                for i in range(len(pieceAttacks)) :
+                    attacked[pieceAttacks[i][0]][pieceAttacks[i][1]] = 99
+    for rank in range(8) :
+        for file in range(8) :
+            if position[rank][file] == colour + 6 and attacked[rank][file] == 99 :
+                return True
+    return False
 
 
 # function to find pawn attacks
@@ -121,14 +133,14 @@ def findPawnAttacks(position, piecePos) :
     # runs if the colour is white
     if colour == 10 :
         # performs the left diagonal check if it is not beyond the board
-        if piecePos[0] + 1 >= 0 and piecePos[1] - 1 >= 0:
+        if 0 <= piecePos[0] + 1 <= 7 and 0 <= piecePos[1] - 1 <= 7 :
             leftID = position[piecePos[0] + 1][piecePos[1] - 1]
             leftPos = [piecePos[0] + 1, piecePos[1] - 1]
             # if the square is empty or a black piece, it is marked
             if leftID == 30 or str(leftID)[0] == "2" :
                 squares.append(leftPos)
         # performs the right diagonal check if it is not beyond the board
-        if piecePos[0] + 1 >= 0 and piecePos[1] + 1 >= 0:
+        if 0 <= piecePos[0] + 1 <= 7 and 0 <= piecePos[1] + 1 <= 7 :
             rightID = position[piecePos[0] + 1][piecePos[1] + 1]
             rightPos = [piecePos[0] + 1, piecePos[1] + 1]
             # if the square is empty or a black piece, it is marked
@@ -137,14 +149,14 @@ def findPawnAttacks(position, piecePos) :
     # runs if the colour is black
     else :
         # performs the left diagonal check if it is not beyond the board
-        if piecePos[0] - 1 <= 7 and piecePos[1] - 1 <= 7:
+        if 0 <= piecePos[0] - 1 <= 7 and 0 <= piecePos[1] - 1 <= 7 :
             leftID = position[piecePos[0] - 1][piecePos[1] - 1]
             leftPos = [piecePos[0] - 1, piecePos[1] - 1]
             # if the square is empty or a white piece, it is marked
             if leftID == 30 or str(leftID)[0] == "1" :
                 squares.append(leftPos)
         # performs the right diagonal check if it is not beyond the board
-        if piecePos[0] - 1 <= 7 and piecePos[1] + 1 <= 7:
+        if 0 <= piecePos[0] - 1 <= 7 and 0 <= piecePos[1] + 1 <= 7 :
             rightID = position[piecePos[0] - 1][piecePos[1] + 1]
             rightPos = [piecePos[0] - 1, piecePos[1] + 1]
             # if the square is empty or a white piece, it is marked
@@ -162,7 +174,7 @@ def findKnightAttacks(position, piecePos) :
     squares = []
     directions = [[2, 1], [1, 2], [-1, 2], [-2, 1], [-2, -1], [-1, -2], [1, -2], [2, -1]]
     for i in range(8) :
-        if 0 <= piecePos[0] + directions[i][0] <= 7 and 0 <= piecePos[1] + directions[i][1] <= 7:
+        if 0 <= piecePos[0] + directions[i][0] <= 7 and 0 <= piecePos[1] + directions[i][1] <= 7 :
             destinationID = position[piecePos[0] + directions[i][0]][piecePos[1] + directions[i][1]]
             destinationPos = [piecePos[0] + directions[i][0], piecePos[1] + directions[i][1]]
             if destinationID == 30 or str(destinationID)[0] == str(oppositeColour)[0] :
@@ -188,13 +200,7 @@ def findBishopAttacks(position, piecePos, colour=None, square=None, direction=No
         # this list will be used to keep track of all squares that are being attacked
         squares = []
     # if the square that this function will travel to next is not on the board, the direction is switched and position is reset
-    if square[0] + direction[0] > 7 or square[0] + direction[0] < 0 or square[1] + direction[1] > 7 or square[1] + \
-            direction[1] < 0 :
-        if direction != [1, -1] :
-            return findBishopAttacks(position, piecePos, colour, piecePos, nextDirection, squares)
-        else :
-            return squares
-    else :
+    if 0 <= square[0] + direction[0] <= 7 and 0 <= square[1] + direction[1] <= 7 :
         newSquareID = position[square[0] + direction[0]][square[1] + direction[1]]
         newSquarePos = [square[0] + direction[0], square[1] + direction[1]]
         # if the square in the direction of travel is empty, it "walks" to that square and recurses
@@ -218,6 +224,11 @@ def findBishopAttacks(position, piecePos, colour=None, square=None, direction=No
             else :
                 squares.append(newSquarePos)
                 return squares
+    else :
+        if direction != [1, -1] :
+            return findBishopAttacks(position, piecePos, colour, piecePos, nextDirection, squares)
+        else :
+            return squares
 
 
 # recursive function to find horizontal and vertical attacks
@@ -236,13 +247,7 @@ def findRookAttacks(position, piecePos, colour=None, square=None, direction=None
         nextDirection = [0, -1]
     if squares is None :
         squares = []
-    if square[0] + direction[0] > 7 or square[0] + direction[0] < 0 or square[1] + direction[1] > 7 or square[1] + \
-            direction[1] < 0 :
-        if direction != [0, -1] :
-            return findRookAttacks(position, piecePos, colour, piecePos, nextDirection, squares)
-        else :
-            return squares
-    else :
+    if 0 <= square[0] + direction[0] <= 7 and 0 <= square[1] + direction[1] <= 7 :
         newSquareID = position[square[0] + direction[0]][square[1] + direction[1]]
         newSquarePos = [square[0] + direction[0], square[1] + direction[1]]
         # if the square in the direction of travel is empty, it "walks" to that square and recurses
@@ -266,6 +271,11 @@ def findRookAttacks(position, piecePos, colour=None, square=None, direction=None
             else :
                 squares.append(newSquarePos)
                 return squares
+    else :
+        if direction != [0, -1] :
+            return findRookAttacks(position, piecePos, colour, piecePos, nextDirection, squares)
+        else :
+            return squares
 
 
 # simple function to find queen attacks combining the rook and bishop
@@ -295,6 +305,24 @@ def findKingAttacks(position, piecePos) :
             if destinationID == 30 or str(destinationID)[0] == str(oppositeColour)[0] :
                 squares.append(destinationPos)
     return squares
+
+
+def findStaticAttacks(position, piecePos) :
+    pieceID = str(position[piecePos[0]][piecePos[1]])[1]
+    if pieceID == "1" :
+        return findPawnAttacks(position, piecePos)
+    elif pieceID == "2" :
+        return findKnightAttacks(position, piecePos)
+    elif pieceID == "3" :
+        return findBishopAttacks(position, piecePos)
+    elif pieceID == "4" :
+        return findRookAttacks(position, piecePos)
+    elif pieceID == "5" :
+        return findQueenAttacks(position, piecePos)
+    elif pieceID == "6" :
+        return findKingAttacks(position, piecePos)
+    else :
+        return []
 
 
 # GUI is thx to Eddie Sharick (YouTube) https://www.youtube.com/watch?v=EnYui0e73Rs&list=PLBwF487qi8MGU81nDGaeNE1EnNEPYWKY_&ab_channel=EddieSharick
@@ -344,4 +372,4 @@ def drawPieces(screen, position) :
 
 # driver code
 if __name__ == '__main__' :
-    print(len(findKingAttacks(parseFen("rnbq1bnr/pppp1ppp/8/1N4pk/6P1/2P5/PP1PP1PP/R1BQKBNR w KQ - 0 1", True), [4, 7])))
+    print(isCheck(parseFen("rnb1kbnr/pppppppp/8/4K3/8/2q5/PPPPPPPP/RNBQ1BNR w kq - 0 1", True), 10))
