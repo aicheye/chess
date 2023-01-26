@@ -165,6 +165,7 @@ def findPawnAttacks(position, piecePos) :
     return squares
 
 
+# find all knight attacks
 def findKnightAttacks(position, piecePos) :
     colour = int(str(position[piecePos[0]][piecePos[1]])[0]) * 10
     if colour == 10 :
@@ -172,11 +173,15 @@ def findKnightAttacks(position, piecePos) :
     else :
         oppositeColour = 10
     squares = []
+    # the direction of every possible knight move
     directions = [[2, 1], [1, 2], [-1, 2], [-2, 1], [-2, -1], [-1, -2], [1, -2], [2, -1]]
     for i in range(8) :
+        # iterating through all possible moves
+        # if the move is beyond the board, it is ignored
         if 0 <= piecePos[0] + directions[i][0] <= 7 and 0 <= piecePos[1] + directions[i][1] <= 7 :
             destinationID = position[piecePos[0] + directions[i][0]][piecePos[1] + directions[i][1]]
             destinationPos = [piecePos[0] + directions[i][0], piecePos[1] + directions[i][1]]
+            # if the square the knight targets is empty or has an enemy piece it is marked
             if destinationID == 30 or str(destinationID)[0] == str(oppositeColour)[0] :
                 squares.append(destinationPos)
     return squares
