@@ -1,5 +1,6 @@
 import pygame
 import random
+import time
 
 # dictionaries - used for functions
 pieceDict = {"P" : 1, "N" : 2, "B" : 3, "R" : 4, "Q" : 5, "K" : 6}
@@ -146,17 +147,140 @@ def encodeFen(position, colour, canCastle, halfmove, fullmove) :
     return fenString
 
 
-def encodePGN(position, piecePos, endPos) :
+def isAmbiguous(position, piecePos, endPos, canCastle) :
+    colour = int(str(position[piecePos[0]][piecePos[1]])[0]) * 10
+    pieceID = position[piecePos[0]][piecePos[1]]
+    sameRank = False
+    sameFile = False
+    for rank in range(8) :
+        for file in range(8) :
+            if position[rank][file] == pieceID and piecePos != (rank, file) and endPos in findPiecesLegalMoves(position,
+                                                                                                               piecePos,
+                                                                                                               canCastle) :
+                if rank == piecePos[0] :
+                    sameRank = True
+                if file == piecePos[1] :
+                    sameFile = True
+    if not sameRank and not sameFile :
+        return tuple([False, False])
+    elif sameRank and not sameFile :
+        return tuple([True, False])
+    elif sameFile and not sameRank :
+        return tuple([False, True])
+    else :
+        return tuple([True, True])
+
+
+def encodePGN(position, piecePos, endPos, canCastle, promoteTo=None) :
+    colour = int(str(position[piecePos[0]][piecePos[1]])[0]) * 10
+    pieceID = position[piecePos[0]][piecePos[1]]
+    if colour == 10 :
+        oppositeColour = 20
+    else :
+        oppositeColour = 10
     pgn = ""
-    if str(position[piecePos[0]][piecePos[1]])[1] == "1" :
-        if piecePos[1] == endPos[1] :
-            pgn = reverseFileDict[endPos[1]] + str(endPos[0] + 1)
-            return pgn
+    if pieceID - colour == 1 :
+        if position[endPos[0]][endPos[1]] == 30 :
+            pgn += reverseFileDict[endPos[1]] + str(endPos[0] + 1)
+            if endPos[0] == 7 or endPos[0] == 0 :
+                pgn += reversePieceDict[promoteTo - colour]
+                newPosition = [i[:] for i in position]
+                newPosition[piecePos[0]][piecePos[1]] = 30
+                newPosition[endPos[0]][endPos[1]] = promoteTo
+                if doesGameEnd(newPosition, oppositeColour, False, canCastle) == "checkmate" :
+                    pgn += "#"
+                elif inCheck(newPosition, oppositeColour) :
+                    pgn += "+"
+                if doesGameEnd(newPosition, oppositeColour, False, canCastle) == "checkmate" :
+                    pgn += "#"
+                elif inCheck(newPosition, oppositeColour) :
+                    pgn += "+"
+            else :
+                newPosition = [i[:] for i in position]
+                newPosition[piecePos[0]][piecePos[1]] = 30
+                newPosition[endPos[0]][endPos[1]] = pieceID
+                if doesGameEnd(newPosition, oppositeColour, False, canCastle) == "checkmate" :
+                    pgn += "#"
+                elif inCheck(newPosition, oppositeColour) :
+                    pgn += "+"
         else :
-            pgn = reverseFileDict[piecePos[1]] + "x" + reverseFileDict[endPos[1]] + str(endPos[0] + 1)
-            return pgn
-    elif str(position[piecePos[0]][piecePos[1]])[1] == "2" :
-        pgn += "N"
+            pgn += reverseFileDict[piecePos[1]] + "x"
+            pgn += reverseFileDict[endPos[1]] + str(endPos[0] + 1)
+            if endPos[0] == 7 or endPos[0] == 0 :
+                pgn += reversePieceDict[promoteTo - colour]
+                newPosition = [i[:] for i in position]
+                newPosition[piecePos[0]][piecePos[1]] = 30
+                newPosition[endPos[0]][endPos[1]] = promoteTo
+                if doesGameEnd(newPosition, oppositeColour, False, canCastle) == "checkmate" :
+                    pgn += "#"
+                elif inCheck(newPosition, oppositeColour) :
+                    pgn += "+"
+            else :
+                newPosition = [i[:] for i in position]
+                if str(position[endPos[0]][endPos[1]])[1] == "7" :
+                    newPosition[piecePos[0]][piecePos[1]] = 30
+                    newPosition[endPos[0]][endPos[1]] = pieceID
+                    if colour == 10 :
+                        newPosition[endPos[0] - 1][endPos[1]] = 30
+                    else :
+                        newPosition[endPos[0] + 1][endPos[1]] = 30
+                else :
+                    newPosition[piecePos[0]][piecePos[1]] = 30
+                    newPosition[endPos[0]][endPos[1]] = pieceID
+                if doesGameEnd(newPosition, oppositeColour, False, canCastle) == "checkmate" :
+                    pgn += "#"
+                elif inCheck(newPosition, oppositeColour) :
+                    pgn += "+"
+    elif pieceID - colour != 6 or (pieceID - colour == 6 and abs(piecePos[1] - endPos[1]) != 2) :
+        if pieceID - colour == 2 :
+            pgn += "N"
+        if pieceID - colour == 3 :
+            pgn += "B"
+        if pieceID - colour == 4 :
+            pgn += "R"
+        if pieceID - colour == 5 :
+            pgn += "Q"
+        if pieceID - colour == 6 :
+            pgn += "K"
+        ambiguous = isAmbiguous(position, piecePos, endPos, canCastle)
+        if ambiguous[0] :
+            pgn += str(endPos[0] + 1)
+        if ambiguous[1] :
+            pgn += reverseFileDict[endPos[1]]
+        if position[endPos[0]][endPos[1]] == 30 :
+            pgn += reverseFileDict[endPos[1]] + str(endPos[0] + 1)
+        else :
+            pgn += "x"
+            pgn += reverseFileDict[endPos[1]] + str(endPos[0] + 1)
+        newPosition = [i[:] for i in position]
+        newPosition[piecePos[0]][piecePos[1]] = 30
+        newPosition[endPos[0]][endPos[1]] = pieceID
+        if doesGameEnd(newPosition, oppositeColour, False, canCastle) == "checkmate" :
+            pgn += "#"
+        elif inCheck(newPosition, oppositeColour) :
+            pgn += "+"
+    elif pieceID - colour == 6 and abs(piecePos[1] - endPos[1]) == 2 :
+        if piecePos[1] - endPos[1] == -2 :
+            pgn += "O-O"
+            newPosition = [i[:] for i in position]
+            newPosition[piecePos[0]][piecePos[1]] = 30
+            newPosition[endPos[0]][endPos[1]] = pieceID
+            newPosition[endPos[0]][endPos[1] - 1] = colour + 4
+            if doesGameEnd(newPosition, oppositeColour, False, canCastle) == "checkmate" :
+                pgn += "#"
+            elif inCheck(newPosition, oppositeColour) :
+                pgn += "+"
+        elif piecePos[1] - endPos[1] == 2 :
+            pgn += "O-O-O"
+            newPosition = [i[:] for i in position]
+            newPosition[piecePos[0]][piecePos[1]] = 30
+            newPosition[endPos[0]][endPos[1]] = pieceID
+            newPosition[endPos[0]][endPos[1] + 1] = colour + 4
+            if doesGameEnd(newPosition, oppositeColour, False, canCastle) == "checkmate" :
+                pgn += "#"
+            elif inCheck(newPosition, oppositeColour) :
+                pgn += "+"
+    return pgn
 
 
 # function to find pawn attacks
@@ -275,7 +399,7 @@ def findBishopMoves(position, piecePos, colour=None, square=None, direction=None
         newSquareID = position[square[0] + direction[0]][square[1] + direction[1]]
         newSquarePos = (square[0] + direction[0], square[1] + direction[1])
         # if the square in the direction of travel is empty, it "walks" to that square and recurses
-        if newSquareID == 30 :
+        if newSquareID == 30 or str(newSquareID)[1] == "7" :
             if newSquarePos not in squares :
                 squares.append(newSquarePos)
                 return findBishopMoves(position, piecePos, colour, newSquarePos, direction, squares)
@@ -322,7 +446,7 @@ def findRookMoves(position, piecePos, colour=None, square=None, direction=None, 
         newSquareID = position[square[0] + direction[0]][square[1] + direction[1]]
         newSquarePos = (square[0] + direction[0], square[1] + direction[1])
         # if the square in the direction of travel is empty, it "walks" to that square and recurses
-        if newSquareID == 30 :
+        if newSquareID == 30 or str(newSquareID)[1] == "7" :
             if newSquarePos not in squares :
                 squares.append(newSquarePos)
                 return findRookMoves(position, piecePos, colour, newSquarePos, direction, squares)
@@ -562,7 +686,7 @@ def findAllMoves(position, colour, canCastle) :
             if str(position[rank][file])[0] == str(colour // 10) and position[rank][file] != colour + 7 :
                 moves[(rank, file)] = []
                 possibleMoves = findPieceMoves(position, (rank, file), canCastle)
-                # checks if every possible move a piece has causes or ignores a check
+                # checks if every possible move a piece causes or ignores a check
                 for i in range(len(possibleMoves)) :
                     if isLegal(position, (rank, file), possibleMoves[i], canCastle) :
                         moves[(rank, file)].append(possibleMoves[i])
@@ -592,7 +716,7 @@ def deleteEnPassant(position) :
     return position
 
 
-def makeMove(position, piecePos, endPos, canCastle) :
+def makeMove(position, piecePos, endPos, canCastle, promoteTo=None) :
     if isLegal(position, piecePos, endPos, canCastle) :
         colour = int(str(position[piecePos[0]][piecePos[1]])[0]) * 10
         pieceID = position[piecePos[0]][piecePos[1]]
@@ -604,15 +728,8 @@ def makeMove(position, piecePos, endPos, canCastle) :
                 position[endPos[0]][endPos[1]] = pieceID
                 deleteEnPassant(position)
                 # handles promotion
-                if pieceID - colour == 1 and (endPos[0] == 7 or endPos[0] == 0) :
-                    promoting = True
-                    while promoting :
-                        promoteTo = input("What piece would you like to promote to (N/B/R/Q)? ").upper()
-                        if promoteTo == "N" or promoteTo == "B" or promoteTo == "R" or promoteTo == "Q" :
-                            position[endPos[0]][endPos[1]] = colour + pieceDict[promoteTo]
-                            promoting = False
-                        else :
-                            print("Please enter N for knight, B for bishop, R for rook, or Q for queen.")
+                if promoteTo is not None :
+                    position[endPos[0]][endPos[1]] = colour + pieceDict[promoteTo]
                 # create en passant target squares if pawn is pushed 2 squares
                 elif pieceID - colour == 1 and abs(piecePos[0] - endPos[0]) == 2 :
                     if colour == 10 :
@@ -667,70 +784,7 @@ def makeMove(position, piecePos, endPos, canCastle) :
     return False
 
 
-def switchTurns(move, pastMoves, playerClicks, capture, colour, halfmove, fullmove) :
-    pygame.mixer.init()
-    moveSound = [pygame.mixer.Sound("sounds/move_1.wav"), pygame.mixer.Sound("sounds/move_2.wav"),
-                 pygame.mixer.Sound("sounds/move_3.wav")]
-    captureSound = [pygame.mixer.Sound("sounds/capture_1.wav"), pygame.mixer.Sound("sounds/capture_2.wav"),
-                    pygame.mixer.Sound("sounds/capture_3.wav")]
-    errorSound = pygame.mixer.Sound("sounds/error.wav")
-    if move is not False :
-        pastMoves.append((playerClicks[0], playerClicks[1]))
-        if not capture :
-            pygame.mixer.Sound.play(moveSound[random.randint(0, 2)])
-        else :
-            pygame.mixer.Sound.play(captureSound[random.randint(0, 2)])
-        board = [i[:] for i in move[0]]
-        canCastle = move[1]
-        if str(board[playerClicks[0][0]][playerClicks[0][1]])[0] != "1" and \
-                board[playerClicks[1][0]][playerClicks[1][1]] == 30 :
-            halfmove += 1
-        if colour == "2" :
-            colour = "1"
-            fullmove += 1
-            if move == pastMoves[len(pastMoves) - 1] and pastMoves[len(pastMoves)] == pastMoves[
-                 len(pastMoves) - 2] :
-                if doesGameEnd(board, int(colour) * 10, True, canCastle) :
-                    print("GAME OVER by " + doesGameEnd(board, int(colour) * 10, True,
-                                                        canCastle) + "!")
-                    print("FEN String of final position: ")
-                    print(encodeFen(board, 10, canCastle, halfmove, fullmove))
-            else :
-                if halfmove == 50 :
-                    if doesGameEnd(board, int(colour) * 10, True, canCastle) :
-                        print("GAME OVER by " + doesGameEnd(board, int(colour) * 10, True,
-                                                            canCastle) + "!")
-                        print("FEN String of final position: ")
-                        print(encodeFen(board, 10, canCastle, halfmove, fullmove))
-                elif doesGameEnd(board, int(colour) * 10, False, canCastle) :
-                    print("GAME OVER by " + doesGameEnd(board, int(colour) * 10, False,
-                                                        canCastle) + "!")
-                    print("FEN String of final position: ")
-                    print(encodeFen(board, 10, canCastle, halfmove, fullmove))
-                else :
-                    return pastMoves, halfmove, fullmove, colour
-        else :
-            colour = "2"
-            if halfmove == 50 :
-                if doesGameEnd(board, int(colour) * 10, True, canCastle) :
-                    print("GAME OVER by " + doesGameEnd(board, int(colour) * 10, True,
-                                                        canCastle) + "!")
-                    print("FEN String of final position: ")
-                    print(encodeFen(board, 10, canCastle, halfmove, fullmove))
-            elif doesGameEnd(board, int(colour) * 10, False, canCastle) :
-                print(
-                    "GAME OVER by " + doesGameEnd(board, int(colour) * 10, False, canCastle) + "!")
-                print("FEN String of final position: ")
-                print(encodeFen(board, 10, canCastle, halfmove, fullmove))
-            else :
-                return pastMoves, halfmove, fullmove, colour
-    else :
-        pygame.mixer.Sound.play(errorSound)
-        return pastMoves, halfmove, fullmove, colour
-
 # GUI is thx to Eddie Sharick (YouTube) https://www.youtube.com/watch?v=EnYui0e73Rs&list=PLBwF487qi8MGU81nDGaeNE1EnNEPYWKY_&ab_channel=EddieSharick
-
-
 # function to combine drawBoard and drawPieces
 def drawPosition(screen, position, highlighted, moves, captures) :
     drawBoard(screen, highlighted)
@@ -771,6 +825,126 @@ def drawDots(screen, moves, captures) :
                         pygame.Rect(captures[i][1] * 100, (7 - captures[i][0]) * 100, 100, 100))
 
 
+def switchTurns(screen, pgn, move, playerClicks, capture, colour, halfmove, fullmove) :
+    moveSound = [pygame.mixer.Sound("sounds/move_1.wav"), pygame.mixer.Sound("sounds/move_2.wav"),
+                 pygame.mixer.Sound("sounds/move_3.wav")]
+    captureSound = [pygame.mixer.Sound("sounds/capture_1.wav"), pygame.mixer.Sound("sounds/capture_2.wav"),
+                    pygame.mixer.Sound("sounds/capture_3.wav")]
+    if move is not False :
+        if not capture :
+            pygame.mixer.Sound.play(moveSound[random.randint(0, 2)])
+        else :
+            pygame.mixer.Sound.play(captureSound[random.randint(0, 2)])
+        board = [i[:] for i in move[0]]
+        canCastle = move[1]
+        if str(board[playerClicks[0][0]][playerClicks[0][1]])[0] != "1" and \
+                board[playerClicks[1][0]][playerClicks[1][1]] == 30 :
+            halfmove += 1
+        if colour == "2" :
+            colour = "1"
+            fullmove += 1
+            if len(pgn) >= 4 :
+                if pgn[len(pgn) - 1] == pgn[len(pgn) - 3] and pgn[len(pgn) - 2] == pgn[len(pgn) - 4] :
+                    if doesGameEnd(board, int(colour) * 10, True, canCastle) :
+                        print("GAME OVER by " + doesGameEnd(board, int(colour) * 10, True, canCastle) + "!")
+                        print("FEN String of final position: ")
+                        print(encodeFen(board, 10, canCastle, halfmove, fullmove))
+                        print("PGN of game: ")
+                        for i in range(len(pgn) - 1) :
+                            print(str(i + 1) + ".", end=" ")
+                            print(pgn[i][0], end=" ")
+                            print(pgn[i][1], end=" ")
+                        if len(pgn[len(pgn) - 1]) == 2 :
+                            print(str(len(pgn) + 1) + ".", end=" ")
+                            print(pgn[len(pgn) - 1][0], end=" ")
+                            print(pgn[len(pgn) - 1][1], end=" ")
+                        else :
+                            print(str(len(pgn) + 1) + ".", end=" ")
+                            print(pgn[len(pgn) - 1][0], end=" ")
+                        print("1/2-1/2")
+            else :
+                if halfmove == 50 :
+                    if doesGameEnd(board, int(colour) * 10, True, canCastle) :
+                        print("GAME OVER by " + doesGameEnd(board, int(colour) * 10, True, canCastle) + "!")
+                        print("FEN String of final position: ")
+                        print(encodeFen(board, 10, canCastle, halfmove, fullmove))
+                        print("PGN of game: ")
+                        for i in range(len(pgn) - 1) :
+                            print(str(i + 1) + ".", end=" ")
+                            print(pgn[i][0], end=" ")
+                            print(pgn[i][1], end=" ")
+                        if len(pgn[len(pgn) - 1]) == 2 :
+                            print(str(len(pgn) + 1) + ".", end=" ")
+                            print(pgn[len(pgn) - 1][0], end=" ")
+                            print(pgn[len(pgn) - 1][1], end=" ")
+                        else :
+                            print(str(len(pgn) + 1) + ".", end=" ")
+                            print(pgn[len(pgn) - 1][0], end=" ")
+                        print("1/2-1/2")
+                elif doesGameEnd(board, int(colour) * 10, False, canCastle) :
+                    print("GAME OVER by " + doesGameEnd(board, int(colour) * 10, False,
+                                                        canCastle) + "!")
+                    print("FEN String of final position: ")
+                    print(encodeFen(board, 10, canCastle, halfmove, fullmove))
+                    print("PGN of game: ")
+                    for i in range(len(pgn) - 1) :
+                        print(str(i + 1) + ".", end=" ")
+                        print(pgn[i][0], end=" ")
+                        print(pgn[i][1], end=" ")
+                    if len(pgn[len(pgn) - 1]) == 2 :
+                        print(str(len(pgn) + 1) + ".", end=" ")
+                        print(pgn[len(pgn) - 1][0], end=" ")
+                        print(pgn[len(pgn) - 1][1], end=" ")
+                    else :
+                        print(str(len(pgn) + 1) + ".", end=" ")
+                        print(pgn[len(pgn) - 1][0], end=" ")
+                    print("0-1")
+                else :
+                    return halfmove, fullmove, colour
+        else :
+            colour = "2"
+            if halfmove == 50 :
+                if doesGameEnd(board, int(colour) * 10, True, canCastle) :
+                    print("GAME OVER by " + doesGameEnd(board, int(colour) * 10, True,
+                                                        canCastle) + "!")
+                    print("FEN String of final position: ")
+                    print(encodeFen(board, 10, canCastle, halfmove, fullmove))
+                    print("PGN of game: ")
+                    for i in range(len(pgn) - 1) :
+                        print(str(i + 1) + ".", end=" ")
+                        print(pgn[i][0], end=" ")
+                        print(pgn[i][1], end=" ")
+                    if len(pgn[len(pgn) - 1]) == 2 :
+                        print(str(len(pgn) + 1) + ".", end=" ")
+                        print(pgn[len(pgn) - 1][0], end=" ")
+                        print(pgn[len(pgn) - 1][1], end=" ")
+                    else :
+                        print(str(len(pgn) + 1) + ".", end=" ")
+                        print(pgn[len(pgn) - 1][0], end=" ")
+                    print("1/2-1/2")
+
+            elif doesGameEnd(board, int(colour) * 10, False, canCastle) :
+                print(
+                    "GAME OVER by " + doesGameEnd(board, int(colour) * 10, False, canCastle) + "!")
+                print("FEN String of final position: ")
+                print(encodeFen(board, 10, canCastle, halfmove, fullmove))
+                print("PGN of game: ")
+                for i in range(len(pgn) - 1) :
+                    print(str(i + 1) + ".", end=" ")
+                    print(pgn[i][0], end=" ")
+                    print(pgn[i][1], end=" ")
+                if len(pgn[len(pgn) - 1]) == 2 :
+                    print(str(len(pgn) + 1) + ".", end=" ")
+                    print(pgn[len(pgn) - 1][0], end=" ")
+                    print(pgn[len(pgn) - 1][1], end=" ")
+                else :
+                    print(str(len(pgn) + 1) + ".", end=" ")
+                    print(pgn[len(pgn) - 1][0], end=" ")
+                print("1-0")
+            else :
+                return halfmove, fullmove, colour
+
+
 # main driver for the GUI and handling moves
 def main(fenString=None) :
     if fenString is None :
@@ -786,8 +960,9 @@ def main(fenString=None) :
         canCastle = parsed["canCastle"]
         fullmove = parsed["fullmove"]
         halfmove = parsed["halfmove"]
-    pastMoves = []
+    pgn = []
     # pygame is initialized
+    pygame.init()
     # window is initialized
     screen = pygame.display.set_mode(size=(800, 800))
     # system clock is initialized
@@ -824,16 +999,38 @@ def main(fenString=None) :
                 if len(playerClicks) == 2 :
                     if str(board[playerClicks[0][0]][playerClicks[0][1]])[0] == colour :
                         capture = False
-                        if board[playerClicks[1][0]][playerClicks[1][1]] != 30 or (str(board[playerClicks[0][0]][playerClicks[0][1]])[1] == "1" and playerClicks[1][0] == 7 or playerClicks[1][0] == 0):
+                        if board[playerClicks[1][0]][playerClicks[1][1]] != 30 or (
+                                str(board[playerClicks[0][0]][playerClicks[0][1]])[1] == "1" and (
+                                playerClicks[1][0] == 7 or playerClicks[1][0] == 0)) :
                             capture = True
-                        move = makeMove(board, playerClicks[0], playerClicks[1], canCastle)
-                        variables = switchTurns(move, pastMoves, playerClicks, capture, colour, halfmove, fullmove)
-                        pastMoves = variables[0]
-                        halfmove = variables[1]
-                        fullmove = variables[2]
-                        colour = variables[3]
+                        if isLegal(board, playerClicks[0], playerClicks[1], canCastle) :
+                            promoteTo = None
+                            if board[playerClicks[0][0]][playerClicks[0][1]] - (int(colour) * 10) == 1 and (
+                                    playerClicks[1][0] == 7 or playerClicks[1][1] == 0) :
+                                promoting = True
+                                while promoting :
+                                    promoteTo = input("What piece would you like to promote to (N/B/R/Q)? ").upper()
+                                    if promoteTo == "N" or promoteTo == "B" or promoteTo == "R" or promoteTo == "Q" :
+                                        board[playerClicks[1][0]][playerClicks[1][1]] = (int(colour) * 10) + pieceDict[
+                                            promoteTo]
+                                        promoting = False
+                                    else :
+                                        print("Please enter N for knight, B for bishop, R for rook, or Q for queen.")
+                            if colour == "1" :
+                                pgn.append([encodePGN(board, playerClicks[0], playerClicks[1], canCastle, promoteTo)])
+                            else :
+                                pgn[len(pgn) - 1].append(encodePGN(board, playerClicks[0], playerClicks[1], canCastle, promoteTo))
+                            move = makeMove(board, playerClicks[0], playerClicks[1], canCastle, promoteTo)
+                            variables = switchTurns(screen, pgn, move, playerClicks, capture, colour, halfmove, fullmove)
+                            if variables is not None :
+                                halfmove = variables[0]
+                                fullmove = variables[1]
+                                colour = variables[2]
+                        else :
+                            pygame.mixer.Sound.play(pygame.mixer.Sound("sounds/error.wav"))
                     playerClicks = []
-        if len(playerClicks) > 0 and str(board[playerClicks[0][0]][playerClicks[0][1]])[0] == colour and board[playerClicks[0][0]][playerClicks[0][1]] != int(colour * 10) + 7:
+        if len(playerClicks) > 0 and str(board[playerClicks[0][0]][playerClicks[0][1]])[0] == colour and \
+                board[playerClicks[0][0]][playerClicks[0][1]] != int(colour * 10) + 7 :
             highlighted = playerClicks[0]
         else :
             highlighted = None
