@@ -5,9 +5,7 @@ pieceDict = {"P" : 1, "N" : 2, "B" : 3, "R" : 4, "Q" : 5, "K" : 6}
 reversePieceDict = {0 : ".", 1 : "P", 2 : "N", 3 : "B", 4 : "R", 5 : "Q", 6 : "K", 7 : ".",
                     "0" : ".", "1" : "P", "2" : "N", "3" : "B", "4" : "R", "5" : "Q", "6" : "K", "7" : "."}
 fileDict = {"a" : 0, "b" : 1, "c" : 2, "d" : 3, "e" : 4, "f" : 5, "g" : 6, "h" : 7}
-
-# images of the pieces
-images = {}
+reverseFileDict = ["a", "b", "c", "d", "e", "f", "g", "h"]
 
 
 # clears board to empty - used for some functions
@@ -35,10 +33,10 @@ def startBoard() :
 
 
 # function to parse fen codes - used to load positions
-def parseFen(fen, posOnly=True) :
+def parseFen(fenString, posOnly=True) :
     # these are variables for all the FEN fields
     position = clearBoard()
-    indexed = fen.split()
+    indexed = fenString.split()
     placements = indexed[0].split("/")
     canCastle = [[False, False], [False, False]]
     halfmove = int(indexed[4])
@@ -91,6 +89,56 @@ def parseFen(fen, posOnly=True) :
                 "fullmove" : fullmove}
 
 
+def encodeFen(position, colour, canCastle, halfmove, fullmove) :
+    fenString = ""
+    enPassant = " -"
+    blanks = 0
+    for rank in reversed(range(8)) :
+        for file in range(8) :
+            if position[rank][file] == 30 :
+                blanks += 1
+            elif str(position[rank][file])[0] == "1":
+                if position[rank][file] != 17 :
+                    if blanks > 0 :
+                        fenString += str(blanks)
+                        fenString += reversePieceDict[str(position[rank][file])[1]]
+                    else :
+                        fenString += reversePieceDict[str(position[rank][file])[1]]
+                else :
+                    enPassant = " " + reverseFileDict[file] + str(rank + 1)
+                blanks = 0
+            elif str(position[rank][file])[0] == "2" :
+                if position[rank][file] != 27 :
+                    if blanks > 0 :
+                        fenString += str(blanks)
+                        fenString += reversePieceDict[str(position[rank][file])[1]].lower()
+                    else :
+                        fenString += reversePieceDict[str(position[rank][file])[1]].lower()
+                else :
+                    enPassant = " " + reverseFileDict[file] + str(rank + 1)
+                blanks = 0
+        fenString += str(blanks)
+        blanks = 0
+        if rank != 0 :
+            fenString += "/"
+    if colour == 10 :
+        fenString += " w "
+    else :
+        fenString += " b "
+    if canCastle[0][0] :
+        fenString += "K"
+    if canCastle[0][1] :
+        fenString += "Q"
+    if canCastle[1][0] :
+        fenString += "k"
+    if canCastle[1][1] :
+        fenString += "q"
+    fenString += enPassant
+    fenString += " " + str(halfmove)
+    fenString += " " + str(fullmove)
+    return fenString
+
+
 # function to find pawn attacks
 def findPawnAttacks(position, piecePos) :
     colour = int(str(position[piecePos[0]][piecePos[1]])[0]) * 10
@@ -100,14 +148,14 @@ def findPawnAttacks(position, piecePos) :
         # performs the left diagonal check if it is not beyond the board
         if 0 <= piecePos[0] + 1 <= 7 and 0 <= piecePos[1] - 1 <= 7 :
             leftID = position[piecePos[0] + 1][piecePos[1] - 1]
-            leftPos = [piecePos[0] + 1, piecePos[1] - 1]
+            leftPos = (piecePos[0] + 1, piecePos[1] - 1)
             # if the square is a black piece, it is marked
             if str(leftID)[0] == "2" :
                 squares.append(leftPos)
         # performs the right diagonal check if it is not beyond the board
         if 0 <= piecePos[0] + 1 <= 7 and 0 <= piecePos[1] + 1 <= 7 :
             rightID = position[piecePos[0] + 1][piecePos[1] + 1]
-            rightPos = [piecePos[0] + 1, piecePos[1] + 1]
+            rightPos = (piecePos[0] + 1, piecePos[1] + 1)
             # if the square is a black piece, it is marked
             if str(rightID)[0] == "2" :
                 squares.append(rightPos)
@@ -116,14 +164,14 @@ def findPawnAttacks(position, piecePos) :
         # performs the left diagonal check if it is not beyond the board
         if 0 <= piecePos[0] - 1 <= 7 and 0 <= piecePos[1] - 1 <= 7 :
             leftID = position[piecePos[0] - 1][piecePos[1] - 1]
-            leftPos = [piecePos[0] - 1, piecePos[1] - 1]
+            leftPos = (piecePos[0] - 1, piecePos[1] - 1)
             # if the square is a white piece, it is marked
             if str(leftID)[0] == "1" :
                 squares.append(leftPos)
         # performs the right diagonal check if it is not beyond the board
         if 0 <= piecePos[0] - 1 <= 7 and 0 <= piecePos[1] + 1 <= 7 :
             rightID = position[piecePos[0] - 1][piecePos[1] + 1]
-            rightPos = [piecePos[0] - 1, piecePos[1] + 1]
+            rightPos = (piecePos[0] - 1, piecePos[1] + 1)
             # if the square is a white piece, it is marked
             if str(rightID)[0] == "1" :
                 squares.append(rightPos)
@@ -137,23 +185,23 @@ def findPawnMoves(position, piecePos) :
     if colour == 10 :
         if 0 <= piecePos[0] + 1 <= 7 :
             newSquareID = position[piecePos[0] + 1][piecePos[1]]
-            newSquarePos = [piecePos[0] + 1, piecePos[1]]
+            newSquarePos = (piecePos[0] + 1, piecePos[1])
             if newSquareID == 30 :
                 squares.append(newSquarePos)
             if 0 <= piecePos[0] + 2 <= 7 and piecePos[0] == 1 :
                 newSquareID = position[piecePos[0] + 2][piecePos[1]]
-                newSquarePos = [piecePos[0] + 2, piecePos[1]]
+                newSquarePos = (piecePos[0] + 2, piecePos[1])
                 if newSquareID == 30 :
                     squares.append(newSquarePos)
     else :
         if 0 <= piecePos[0] - 1 <= 7 :
             newSquareID = position[piecePos[0] - 1][piecePos[1]]
-            newSquarePos = [piecePos[0] - 1, piecePos[1]]
+            newSquarePos = (piecePos[0] - 1, piecePos[1])
             if newSquareID == 30 :
                 squares.append(newSquarePos)
             if 0 <= piecePos[0] - 2 <= 7 and piecePos[0] == 6 :
                 newSquareID = position[piecePos[0] - 2][piecePos[1]]
-                newSquarePos = [piecePos[0] - 2, piecePos[1]]
+                newSquarePos = (piecePos[0] - 2, piecePos[1])
                 if newSquareID == 30 :
                     squares.append(newSquarePos)
     attacks = findPawnAttacks(position, piecePos)
@@ -177,11 +225,11 @@ def findKnightMoves(position, piecePos) :
         # iterating through all possible moves
         # if the move is beyond the board, it is ignored
         if 0 <= piecePos[0] + directions[i][0] <= 7 and 0 <= piecePos[1] + directions[i][1] <= 7 :
-            destinationID = position[piecePos[0] + directions[i][0]][piecePos[1] + directions[i][1]]
-            destinationPos = [piecePos[0] + directions[i][0], piecePos[1] + directions[i][1]]
+            endID = position[piecePos[0] + directions[i][0]][piecePos[1] + directions[i][1]]
+            endPos = (piecePos[0] + directions[i][0], piecePos[1] + directions[i][1])
             # if the square the knight targets is empty or has an enemy piece it is marked
-            if destinationID == 30 or str(destinationID)[0] == str(oppositeColour)[0] :
-                squares.append(destinationPos)
+            if endID == 30 or str(endID)[0] == str(oppositeColour)[0] :
+                squares.append(endPos)
     return squares
 
 
@@ -205,7 +253,7 @@ def findBishopMoves(position, piecePos, colour=None, square=None, direction=None
     # if the square that this function will travel to next is not on the board, the direction is switched and position is reset
     if 0 <= square[0] + direction[0] <= 7 and 0 <= square[1] + direction[1] <= 7 :
         newSquareID = position[square[0] + direction[0]][square[1] + direction[1]]
-        newSquarePos = [square[0] + direction[0], square[1] + direction[1]]
+        newSquarePos = (square[0] + direction[0], square[1] + direction[1])
         # if the square in the direction of travel is empty, it "walks" to that square and recurses
         if newSquareID == 30 :
             if newSquarePos not in squares :
@@ -219,7 +267,7 @@ def findBishopMoves(position, piecePos, colour=None, square=None, direction=None
                 return findBishopMoves(position, piecePos, colour, piecePos, nextDirection, squares)
             else :
                 return squares
-            # if the square in the direction of travel is not its own, it attacks that square, resets to the original square and switches direction
+        # if the square in the direction of travel is not its own, it attacks that square, resets to the original square and switches direction
         else :
             if direction != [1, -1] :
                 squares.append(newSquarePos)
@@ -252,7 +300,7 @@ def findRookMoves(position, piecePos, colour=None, square=None, direction=None, 
         squares = []
     if 0 <= square[0] + direction[0] <= 7 and 0 <= square[1] + direction[1] <= 7 :
         newSquareID = position[square[0] + direction[0]][square[1] + direction[1]]
-        newSquarePos = [square[0] + direction[0], square[1] + direction[1]]
+        newSquarePos = (square[0] + direction[0], square[1] + direction[1])
         # if the square in the direction of travel is empty, it "walks" to that square and recurses
         if newSquareID == 30 :
             if newSquarePos not in squares :
@@ -303,10 +351,10 @@ def findKingAttacks(position, piecePos) :
     directions = [[1, 0], [1, 1], [0, 1], [1, -1], [-1, 0], [-1, -1], [0, -1], [-1, 1]]
     for i in range(8) :
         if 0 <= piecePos[0] + directions[i][0] <= 7 and 0 <= piecePos[1] + directions[i][1] <= 7 :
-            destinationID = position[piecePos[0] + directions[i][0]][piecePos[1] + directions[i][1]]
-            destinationPos = [piecePos[0] + directions[i][0], piecePos[1] + directions[i][1]]
-            if destinationID == 30 or str(destinationID)[0] == str(oppositeColour)[0] :
-                squares.append(destinationPos)
+            endID = position[piecePos[0] + directions[i][0]][piecePos[1] + directions[i][1]]
+            endPos = (piecePos[0] + directions[i][0], piecePos[1] + directions[i][1])
+            if endID == 30 or str(endID)[0] == str(oppositeColour)[0] :
+                squares.append(endPos)
     return squares
 
 
@@ -320,22 +368,22 @@ def findKingMoves(position, piecePos, canCastle) :
     directions = [[1, 0], [1, 1], [0, 1], [1, -1], [-1, 0], [-1, -1], [0, -1], [-1, 1]]
     for i in range(8) :
         if 0 <= piecePos[0] + directions[i][0] <= 7 and 0 <= piecePos[1] + directions[i][1] <= 7 :
-            destinationID = position[piecePos[0] + directions[i][0]][piecePos[1] + directions[i][1]]
-            destinationPos = [piecePos[0] + directions[i][0], piecePos[1] + directions[i][1]]
-            if destinationID == 30 or str(destinationID)[0] == str(oppositeColour)[0] :
-                squares.append(destinationPos)
-    if canCastle[colour // 10 - 1][0] and str(position[piecePos[0]][piecePos[1] + 3])[0] == "4" and \
+            endID = position[piecePos[0] + directions[i][0]][piecePos[1] + directions[i][1]]
+            endPos = (piecePos[0] + directions[i][0], piecePos[1] + directions[i][1])
+            if endID == 30 or str(endID)[0] == str(oppositeColour)[0] :
+                squares.append(endPos)
+    if canCastle[colour // 10 - 1][0] and str(position[piecePos[0]][piecePos[1] + 3])[1] == "4" and \
             position[piecePos[0]][piecePos[1] + 2] == 30 and position[piecePos[0]][piecePos[1] + 1] == 30 :
-        squares.append([[piecePos[0]], [piecePos[1] + 2]])
-    if canCastle[colour // 10 - 1][1] and str(position[piecePos[0]][piecePos[1] - 4])[0] == "4" and \
+        squares.append((piecePos[0], piecePos[1] + 2))
+    if canCastle[colour // 10 - 1][1] and str(position[piecePos[0]][piecePos[1] - 4])[1] == "4" and \
             position[piecePos[0]][piecePos[1] - 3] == 30 and position[piecePos[0]][piecePos[1] - 2] == 30 and \
             position[piecePos[0]][piecePos[1] - 1] == 30 :
-        squares.append([[piecePos[0]], [piecePos[1] - 2]])
+        squares.append((piecePos[0], piecePos[1] - 2))
     return squares
 
 
 # combines all piece attacks into one function
-def findStaticAttacks(position, piecePos) :
+def findPieceAttacks(position, piecePos) :
     pieceID = str(position[piecePos[0]][piecePos[1]])[1]
     if pieceID == "1" :
         return findPawnAttacks(position, piecePos)
@@ -354,7 +402,7 @@ def findStaticAttacks(position, piecePos) :
 
 
 # combines all piece moves into one function
-def findStaticMoves(position, piecePos, canCastle) :
+def findPieceMoves(position, piecePos, canCastle) :
     pieceID = str(position[piecePos[0]][piecePos[1]])[1]
     if pieceID == "1" :
         return findPawnMoves(position, piecePos)
@@ -377,8 +425,9 @@ def inCheck(position, colour) :
     attacked = clearBoard()
     for rank in range(8) :
         for file in range(8) :
-            if position[rank][file] != 30 and str(position[rank][file])[1] != "7" and str(position[rank][file])[0] != str(colour // 10) :
-                pieceAttacks = findStaticAttacks(position, [rank, file])
+            if position[rank][file] != 30 and str(position[rank][file])[1] != "7" and str(position[rank][file])[
+                0] != str(colour // 10) :
+                pieceAttacks = findPieceAttacks(position, (rank, file))
                 # for every square under attack, the corresponding square in the board "attacked" is also 99
                 for i in range(len(pieceAttacks)) :
                     attacked[pieceAttacks[i][0]][pieceAttacks[i][1]] = 99
@@ -393,10 +442,12 @@ def inCheck(position, colour) :
 
 
 # finds if any given move is legal
-def isLegal(position, piecePos, endPos) :
+def isLegal(position, piecePos, endPos, canCastle) :
     colour = int(str(position[piecePos[0]][piecePos[1]])[0]) * 10
     pieceID = position[piecePos[0]][piecePos[1]]
     endID = position[endPos[0]][endPos[1]]
+    if endPos not in findPieceMoves(position, piecePos, canCastle) :
+        return False
     if pieceID - colour != 6 or (pieceID - colour == 6 and abs(piecePos[1] - endPos[1]) != 2) :
         # handles generic case
         if pieceID - colour != 1 or (pieceID - colour == 1 and str(endID)[1] != "7") :
@@ -468,21 +519,32 @@ def isLegal(position, piecePos, endPos) :
                 return False
 
 
+def findPiecesLegalMoves(position, piecePos, canCastle) :
+    legalMoves = findPieceMoves(position, piecePos, canCastle)
+    incrementing = True
+    i = 0
+    while incrementing :
+        if i < len(legalMoves) :
+            if not isLegal(position, piecePos, legalMoves[i], canCastle) :
+                legalMoves.pop(i)
+            else :
+                i += 1
+        else :
+            break
+    return legalMoves
+
+
 # returns a list of all legal moves in a given position
-def findMoves(board, colour, canCastle) :
-    if colour == 10 :
-        oppositeColour = 20
-    else :
-        oppositeColour = 10
+def findAllMoves(position, colour, canCastle) :
     moves = {}
     for rank in range(8) :
         for file in range(8) :
-            if str(board[rank][file])[0] == str(colour // 10) and board[rank][file] != colour + 7 :
+            if str(position[rank][file])[0] == str(colour // 10) and position[rank][file] != colour + 7 :
                 moves[(rank, file)] = []
-                possibleMoves = findStaticMoves(board, [rank, file], canCastle)
+                possibleMoves = findPieceMoves(position, (rank, file), canCastle)
                 # checks if every possible move a piece has causes or ignores a check
                 for i in range(len(possibleMoves)) :
-                    if isLegal(board, [rank, file], possibleMoves[i]) :
+                    if isLegal(position, (rank, file), possibleMoves[i], canCastle) :
                         moves[(rank, file)].append(possibleMoves[i])
                 if not moves[(rank, file)] :
                     moves.pop((rank, file))
@@ -490,20 +552,100 @@ def findMoves(board, colour, canCastle) :
 
 
 # checks if a move ends the game
-def doesGameEnd(position, colour, repetitionCount, canCastle) :
-    if len(findMoves(position, colour, canCastle)) == 0 :
+def doesGameEnd(position, colour, moveDraw, canCastle) :
+    if len(findAllMoves(position, colour, canCastle)) == 0 :
         if inCheck(position, colour) :
             return "checkmate"
         else :
             return "stalemate"
     else :
-        if repetitionCount == 3 :
+        if moveDraw :
             return "stalemate"
         return False
 
 
+def deleteEnPassant(position) :
+    for rank in range(8) :
+        for file in range(8) :
+            if str(position[rank][file])[1] == "7" :
+                position[rank][file] = 30
+    return position
+
+
+def makeMove(position, piecePos, endPos, canCastle, promotion=None) :
+    if isLegal(position, piecePos, endPos, canCastle) :
+        colour = int(str(position[piecePos[0]][piecePos[1]])[0]) * 10
+        pieceID = position[piecePos[0]][piecePos[1]]
+        endID = position[endPos[0]][endPos[1]]
+        if pieceID - colour != 6 or (pieceID - colour == 6 and abs(piecePos[1] - endPos[1]) != 2) :
+            if pieceID - colour != 1 or (pieceID - colour == 1 and str(endID)[1] != "7") :
+                # generic case
+                position[piecePos[0]][piecePos[1]] = 30
+                position[endPos[0]][endPos[1]] = pieceID
+                deleteEnPassant(position)
+                # create en passant target squares if pawn is pushed 2 squares
+                if pieceID - colour == 1 and abs(piecePos[0] - endPos[0]) == 2 :
+                    if colour == 10 :
+                        position[endPos[0] - 1][endPos[1]] = 17
+                    elif colour == 20 :
+                        position[endPos[0] + 1][endPos[1]] = 27
+                # handle castling rules
+                if pieceID == 16 :
+                    canCastle[0] = [False, False]
+                elif pieceID == 26 :
+                    canCastle[1] = [False, False]
+                elif pieceID == 14 and piecePos == (0, 7) :
+                    canCastle[0][0] = False
+                elif pieceID == 14 and piecePos == (0, 0) :
+                    canCastle[0][1] = False
+                elif pieceID == 24 and piecePos == (7, 7) :
+                    canCastle[1][0] = False
+                elif pieceID == 24 and piecePos == (7, 0) :
+                    canCastle[1][1] = False
+                return position, canCastle
+            # handle special case: en passant
+            elif pieceID - colour == 1 and str(endID)[1] == "7" :
+                position[piecePos[0]][piecePos[1]] = 30
+                position[endPos[0]][endPos[1]] = pieceID
+                position[endPos[0] - 1][endPos[1]] = 30
+                deleteEnPassant(position)
+        # handle special case: short side castling
+        elif pieceID - colour == 6 and piecePos[1] - endPos[1] == - 2 :
+            position[piecePos[0]][piecePos[1]] = 30
+            position[piecePos[0]][piecePos[1] + 2] = pieceID
+            position[piecePos[0]][piecePos[1] + 3] = 30
+            position[endPos[0]][endPos[1] - 1] = colour + 4
+            deleteEnPassant(position)
+            if colour == 10 :
+                canCastle[0][0] = False
+            else :
+                canCastle[1][0] = False
+            return position, canCastle
+        # handle special case: long side castling
+        elif pieceID - colour == 6 and piecePos[1] - endPos[1] == 2 :
+            position[piecePos[0]][piecePos[1]] = 30
+            position[piecePos[0]][piecePos[1] - 2] = pieceID
+            position[piecePos[0]][piecePos[1] - 4] = 30
+            position[endPos[0]][endPos[1] + 1] = colour + 4
+            deleteEnPassant(position)
+            if colour == 10 :
+                canCastle[0][1] = False
+            else :
+                canCastle[1][1] = False
+            return position, canCastle
+    return False
+
+
 # GUI is thx to Eddie Sharick (YouTube) https://www.youtube.com/watch?v=EnYui0e73Rs&list=PLBwF487qi8MGU81nDGaeNE1EnNEPYWKY_&ab_channel=EddieSharick
-def GUI(board) :
+# main driver for the GUI and handling moves
+def main(board=None, toMove="1", canCastle=None) :
+    if canCastle is None :
+        canCastle = [[True, True], [True, True]]
+    if board is None :
+        board = startBoard()
+    fullmoves = 0
+    halfmoves = 0
+    pastMoves = []
     # pygame is initialized
     pygame.init()
     # window is initialized
@@ -512,41 +654,150 @@ def GUI(board) :
     clock = pygame.time.Clock()
     screen.fill(pygame.Color("white"))
     running = True
+    sqSelected = ()  # keep track of the last click in a tuple
+    playerClicks = []  # keep track of the last two player clicks in two tuples
     while running :
         for event in pygame.event.get() :
             if event.type == pygame.QUIT :
                 pygame.display.quit()
                 pygame.quit()
                 exit()
-        drawPosition(screen, board)
+            elif event.type == pygame.MOUSEBUTTONDOWN :
+                location = pygame.mouse.get_pos()  # x,y location of mouse
+                col = location[0] // 100
+                row = (800 - location[1]) // 100
+                if sqSelected == (row, col) :
+                    sqSelected = ()  # deselect
+                    playerClicks = []  # reset player clicks
+                else :
+                    sqSelected = (row, col)
+                    if len(playerClicks) == 0 and str(board[sqSelected[0]][sqSelected[1]])[0] == toMove :
+                        playerClicks.append(sqSelected)  # append for both first and second clicks
+                    elif len(playerClicks) == 1 :
+                        if str(board[sqSelected[0]][sqSelected[1]])[0] == toMove :
+                            playerClicks = [sqSelected]
+                        else :
+                            playerClicks.append(sqSelected)
+                    else :
+                        playerClicks = []
+                if len(playerClicks) == 2 :
+                    if str(board[playerClicks[0][0]][playerClicks[0][1]])[0] == toMove :
+                        move = makeMove(board, playerClicks[0], playerClicks[1], canCastle)
+                        if move is not False :
+                            pastMoves.append((playerClicks[0], playerClicks[1]))
+                            board = [i[:] for i in move[0]]
+                            canCastle = move[1]
+                            if toMove == "2" :
+                                if move == pastMoves[len(pastMoves) - 1] and pastMoves[len(pastMoves)] == pastMoves[
+                                     len(pastMoves) - 2] :
+                                    if str(board[playerClicks[0][0]][playerClicks[0][1]])[0] != "1" and \
+                                            board[playerClicks[1][0]][playerClicks[1][1]] == 30 :
+                                        halfmoves += 1
+                                    fullmoves += 1
+                                    if doesGameEnd(board, int(toMove) * 10, True, canCastle) :
+                                        toMove = "1"
+                                        print("GAME OVER by " + doesGameEnd(board, int(toMove) * 10, True,
+                                                                            canCastle) + "!")
+                                        print("FEN String of final position: ")
+                                        print(encodeFen(board, 10, canCastle, halfmoves, fullmoves))
+                                else :
+                                    if str(board[playerClicks[0][0]][playerClicks[0][1]])[0] != "1" and \
+                                            board[playerClicks[1][0]][playerClicks[1][1]] == 30 :
+                                        halfmoves += 1
+                                    if halfmoves == 50 :
+                                        toMove = "1"
+                                        if doesGameEnd(board, int(toMove) * 10, True, canCastle) :
+                                            print("GAME OVER by " + doesGameEnd(board, int(toMove) * 10, True, canCastle) + "!")
+                                            print("FEN String of final position: ")
+                                            print(encodeFen(board, 10, canCastle, halfmoves, fullmoves))
+                                    fullmoves += 1
+                                    toMove = "1"
+                                    if doesGameEnd(board, int(toMove) * 10, False, canCastle) :
+                                        print("GAME OVER by " + doesGameEnd(board, int(toMove) * 10, False,
+                                                                            canCastle) + "!")
+                                        print("FEN String of final position: ")
+                                        print(encodeFen(board, 10, canCastle, halfmoves, fullmoves))
+                            else :
+                                if str(board[playerClicks[0][0]][playerClicks[0][1]])[0] != "1" and \
+                                        board[playerClicks[1][0]][playerClicks[1][1]] == 30 :
+                                    halfmoves += 1
+                                if halfmoves == 50 :
+                                    toMove = "2"
+                                    if doesGameEnd(board, int(toMove) * 10, True, canCastle) :
+                                        print("GAME OVER by " + doesGameEnd(board, int(toMove) * 10, True,
+                                                                            canCastle) + "!")
+                                        print("FEN String of final position: ")
+                                        print(encodeFen(board, 10, canCastle, halfmoves, fullmoves))
+                                toMove = "2"
+                                if doesGameEnd(board, int(toMove) * 10, False, canCastle) :
+                                    print("GAME OVER by " + doesGameEnd(board, int(toMove) * 10, False, canCastle) + "!")
+                                    print("FEN String of final position: ")
+                                    print(encodeFen(board, 10, canCastle, halfmoves, fullmoves))
+
+                    playerClicks = []
+        if len(playerClicks) > 0 and str(board[playerClicks[0][0]][playerClicks[0][1]])[0] == toMove :
+            highlighted = playerClicks[0]
+        else :
+            highlighted = None
+        moves = []
+        captures = []
+        if highlighted is not None :
+            moves = findPiecesLegalMoves(board, highlighted, canCastle)
+            incrementing = True
+            i = 0
+            while incrementing :
+                if i < len(moves) :
+                    if board[moves[i][0]][moves[i][1]] != 30 :
+                        captures.append(moves.pop(i))
+                    else :
+                        i += 1
+                else :
+                    break
+        drawPosition(screen, board, highlighted, moves, captures)
         clock.tick(60)
         pygame.display.flip()
 
 
 # function to combine drawBoard and drawPieces
-def drawPosition(screen, position) :
-    drawBoard(screen)
+def drawPosition(screen, position, highlighted, moves, captures) :
+    drawBoard(screen, highlighted)
     drawPieces(screen, position)
+    drawDots(screen, moves, captures)
 
 
 # function to draw a board
-def drawBoard(screen) :
+def drawBoard(screen, highlighted) :
     colours = [pygame.Color("white"), pygame.Color("tan")]
     for rank in range(8) :
         for file in range(8) :
             colour = colours[(rank + file) % 2]
             pygame.draw.rect(screen, colour, pygame.Rect(file * 100, rank * 100, 100, 100))
+    if highlighted is not None :
+        pygame.draw.rect(screen, "yellow", pygame.Rect(highlighted[1] * 100, (7 - highlighted[0]) * 100, 100, 100))
 
 
 def drawPieces(screen, position) :
+    visualRank = 7
     for rank in range(8) :
         for file in range(8) :
             piece = str(position[rank][file])
             if piece != "30" :
                 screen.blit(pygame.transform.scale(pygame.image.load("images/" + piece + ".png"), (90, 90)),
-                            pygame.Rect(file * 100 + 5, rank * 100 + 5, 100, 100))
+                            pygame.Rect(file * 100 + 5, visualRank * 100 + 5, 100, 100))
+        visualRank -= 1
+
+
+def drawDots(screen, moves, captures) :
+    if len(moves) > 0 :
+        for i in range(len(moves)) :
+            screen.blit(pygame.transform.scale(pygame.image.load("images/dot.png"), (100, 100)),
+                        pygame.Rect(moves[i][1] * 100, (7 - moves[i][0]) * 100, 100, 100))
+    if len(captures) > 0 :
+        for i in range(len(captures)) :
+            screen.blit(pygame.transform.scale(pygame.image.load("images/bracket.png"), (100, 100)),
+                        pygame.Rect(captures[i][1] * 100, (7 - captures[i][0]) * 100, 100, 100))
 
 
 # driver code
 if __name__ == '__main__' :
-    pass
+    main()
