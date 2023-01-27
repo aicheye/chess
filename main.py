@@ -1,4 +1,5 @@
 import pygame
+import random
 
 # dictionaries - used for functions
 pieceDict = {"P" : 1, "N" : 2, "B" : 3, "R" : 4, "Q" : 5, "K" : 6}
@@ -81,7 +82,10 @@ def parseFen(fenString, posOnly=True) :
     if "q" in indexed[2] :
         canCastle[1][1] = True
     if indexed[3] != "-" :
-        position[int(indexed[3][1])][fileDict[indexed[3][0]]] = colour + 7
+        if int(indexed[3][1]) - 1 == 5 :
+            position[int(indexed[3][1]) - 1][fileDict[indexed[3][0]]] = 27
+        else :
+            position[int(indexed[3][1]) - 1][fileDict[indexed[3][0]]] = 17
     if posOnly :
         return position
     else :
@@ -97,7 +101,7 @@ def encodeFen(position, colour, canCastle, halfmove, fullmove) :
         for file in range(8) :
             if position[rank][file] == 30 :
                 blanks += 1
-            elif str(position[rank][file])[0] == "1":
+            elif str(position[rank][file])[0] == "1" :
                 if position[rank][file] != 17 :
                     if blanks > 0 :
                         fenString += str(blanks)
@@ -125,18 +129,34 @@ def encodeFen(position, colour, canCastle, halfmove, fullmove) :
         fenString += " w "
     else :
         fenString += " b "
-    if canCastle[0][0] :
-        fenString += "K"
-    if canCastle[0][1] :
-        fenString += "Q"
-    if canCastle[1][0] :
-        fenString += "k"
-    if canCastle[1][1] :
-        fenString += "q"
+    if canCastle == [[False, False], [False, False]] :
+        fenString += "-"
+    else :
+        if canCastle[0][0] :
+            fenString += "K"
+        if canCastle[0][1] :
+            fenString += "Q"
+        if canCastle[1][0] :
+            fenString += "k"
+        if canCastle[1][1] :
+            fenString += "q"
     fenString += enPassant
     fenString += " " + str(halfmove)
     fenString += " " + str(fullmove)
     return fenString
+
+
+def encodePGN(position, piecePos, endPos) :
+    pgn = ""
+    if str(position[piecePos[0]][piecePos[1]])[1] == "1" :
+        if piecePos[1] == endPos[1] :
+            pgn = reverseFileDict[endPos[1]] + str(endPos[0] + 1)
+            return pgn
+        else :
+            pgn = reverseFileDict[piecePos[1]] + "x" + reverseFileDict[endPos[1]] + str(endPos[0] + 1)
+            return pgn
+    elif str(position[piecePos[0]][piecePos[1]])[1] == "2" :
+        pgn += "N"
 
 
 # function to find pawn attacks
@@ -426,7 +446,7 @@ def inCheck(position, colour) :
     for rank in range(8) :
         for file in range(8) :
             if position[rank][file] != 30 and str(position[rank][file])[1] != "7" and str(position[rank][file])[
-                0] != str(colour // 10) :
+                    0] != str(colour // 10) :
                 pieceAttacks = findPieceAttacks(position, (rank, file))
                 # for every square under attack, the corresponding square in the board "attacked" is also 99
                 for i in range(len(pieceAttacks)) :
@@ -572,7 +592,7 @@ def deleteEnPassant(position) :
     return position
 
 
-def makeMove(position, piecePos, endPos, canCastle, promotion=None) :
+def makeMove(position, piecePos, endPos, canCastle) :
     if isLegal(position, piecePos, endPos, canCastle) :
         colour = int(str(position[piecePos[0]][piecePos[1]])[0]) * 10
         pieceID = position[piecePos[0]][piecePos[1]]
@@ -583,8 +603,18 @@ def makeMove(position, piecePos, endPos, canCastle, promotion=None) :
                 position[piecePos[0]][piecePos[1]] = 30
                 position[endPos[0]][endPos[1]] = pieceID
                 deleteEnPassant(position)
+                # handles promotion
+                if pieceID - colour == 1 and (endPos[0] == 7 or endPos[0] == 0) :
+                    promoting = True
+                    while promoting :
+                        promoteTo = input("What piece would you like to promote to (N/B/R/Q)? ").upper()
+                        if promoteTo == "N" or promoteTo == "B" or promoteTo == "R" or promoteTo == "Q" :
+                            position[endPos[0]][endPos[1]] = colour + pieceDict[promoteTo]
+                            promoting = False
+                        else :
+                            print("Please enter N for knight, B for bishop, R for rook, or Q for queen.")
                 # create en passant target squares if pawn is pushed 2 squares
-                if pieceID - colour == 1 and abs(piecePos[0] - endPos[0]) == 2 :
+                elif pieceID - colour == 1 and abs(piecePos[0] - endPos[0]) == 2 :
                     if colour == 10 :
                         position[endPos[0] - 1][endPos[1]] = 17
                     elif colour == 20 :
@@ -609,6 +639,7 @@ def makeMove(position, piecePos, endPos, canCastle, promotion=None) :
                 position[endPos[0]][endPos[1]] = pieceID
                 position[endPos[0] - 1][endPos[1]] = 30
                 deleteEnPassant(position)
+                return position, canCastle
         # handle special case: short side castling
         elif pieceID - colour == 6 and piecePos[1] - endPos[1] == - 2 :
             position[piecePos[0]][piecePos[1]] = 30
@@ -636,126 +667,68 @@ def makeMove(position, piecePos, endPos, canCastle, promotion=None) :
     return False
 
 
-# GUI is thx to Eddie Sharick (YouTube) https://www.youtube.com/watch?v=EnYui0e73Rs&list=PLBwF487qi8MGU81nDGaeNE1EnNEPYWKY_&ab_channel=EddieSharick
-# main driver for the GUI and handling moves
-def main(board=None, toMove="1", canCastle=None) :
-    if canCastle is None :
-        canCastle = [[True, True], [True, True]]
-    if board is None :
-        board = startBoard()
-    fullmoves = 0
-    halfmoves = 0
-    pastMoves = []
-    # pygame is initialized
-    pygame.init()
-    # window is initialized
-    screen = pygame.display.set_mode(size=(800, 800))
-    # system clock is initialized
-    clock = pygame.time.Clock()
-    screen.fill(pygame.Color("white"))
-    running = True
-    sqSelected = ()  # keep track of the last click in a tuple
-    playerClicks = []  # keep track of the last two player clicks in two tuples
-    while running :
-        for event in pygame.event.get() :
-            if event.type == pygame.QUIT :
-                pygame.display.quit()
-                pygame.quit()
-                exit()
-            elif event.type == pygame.MOUSEBUTTONDOWN :
-                location = pygame.mouse.get_pos()  # x,y location of mouse
-                col = location[0] // 100
-                row = (800 - location[1]) // 100
-                if sqSelected == (row, col) :
-                    sqSelected = ()  # deselect
-                    playerClicks = []  # reset player clicks
-                else :
-                    sqSelected = (row, col)
-                    if len(playerClicks) == 0 and str(board[sqSelected[0]][sqSelected[1]])[0] == toMove :
-                        playerClicks.append(sqSelected)  # append for both first and second clicks
-                    elif len(playerClicks) == 1 :
-                        if str(board[sqSelected[0]][sqSelected[1]])[0] == toMove :
-                            playerClicks = [sqSelected]
-                        else :
-                            playerClicks.append(sqSelected)
-                    else :
-                        playerClicks = []
-                if len(playerClicks) == 2 :
-                    if str(board[playerClicks[0][0]][playerClicks[0][1]])[0] == toMove :
-                        move = makeMove(board, playerClicks[0], playerClicks[1], canCastle)
-                        if move is not False :
-                            pastMoves.append((playerClicks[0], playerClicks[1]))
-                            board = [i[:] for i in move[0]]
-                            canCastle = move[1]
-                            if toMove == "2" :
-                                if move == pastMoves[len(pastMoves) - 1] and pastMoves[len(pastMoves)] == pastMoves[
-                                     len(pastMoves) - 2] :
-                                    if str(board[playerClicks[0][0]][playerClicks[0][1]])[0] != "1" and \
-                                            board[playerClicks[1][0]][playerClicks[1][1]] == 30 :
-                                        halfmoves += 1
-                                    fullmoves += 1
-                                    if doesGameEnd(board, int(toMove) * 10, True, canCastle) :
-                                        toMove = "1"
-                                        print("GAME OVER by " + doesGameEnd(board, int(toMove) * 10, True,
-                                                                            canCastle) + "!")
-                                        print("FEN String of final position: ")
-                                        print(encodeFen(board, 10, canCastle, halfmoves, fullmoves))
-                                else :
-                                    if str(board[playerClicks[0][0]][playerClicks[0][1]])[0] != "1" and \
-                                            board[playerClicks[1][0]][playerClicks[1][1]] == 30 :
-                                        halfmoves += 1
-                                    if halfmoves == 50 :
-                                        toMove = "1"
-                                        if doesGameEnd(board, int(toMove) * 10, True, canCastle) :
-                                            print("GAME OVER by " + doesGameEnd(board, int(toMove) * 10, True, canCastle) + "!")
-                                            print("FEN String of final position: ")
-                                            print(encodeFen(board, 10, canCastle, halfmoves, fullmoves))
-                                    fullmoves += 1
-                                    toMove = "1"
-                                    if doesGameEnd(board, int(toMove) * 10, False, canCastle) :
-                                        print("GAME OVER by " + doesGameEnd(board, int(toMove) * 10, False,
-                                                                            canCastle) + "!")
-                                        print("FEN String of final position: ")
-                                        print(encodeFen(board, 10, canCastle, halfmoves, fullmoves))
-                            else :
-                                if str(board[playerClicks[0][0]][playerClicks[0][1]])[0] != "1" and \
-                                        board[playerClicks[1][0]][playerClicks[1][1]] == 30 :
-                                    halfmoves += 1
-                                if halfmoves == 50 :
-                                    toMove = "2"
-                                    if doesGameEnd(board, int(toMove) * 10, True, canCastle) :
-                                        print("GAME OVER by " + doesGameEnd(board, int(toMove) * 10, True,
-                                                                            canCastle) + "!")
-                                        print("FEN String of final position: ")
-                                        print(encodeFen(board, 10, canCastle, halfmoves, fullmoves))
-                                toMove = "2"
-                                if doesGameEnd(board, int(toMove) * 10, False, canCastle) :
-                                    print("GAME OVER by " + doesGameEnd(board, int(toMove) * 10, False, canCastle) + "!")
-                                    print("FEN String of final position: ")
-                                    print(encodeFen(board, 10, canCastle, halfmoves, fullmoves))
-
-                    playerClicks = []
-        if len(playerClicks) > 0 and str(board[playerClicks[0][0]][playerClicks[0][1]])[0] == toMove :
-            highlighted = playerClicks[0]
+def switchTurns(move, pastMoves, playerClicks, capture, colour, halfmove, fullmove) :
+    pygame.mixer.init()
+    moveSound = [pygame.mixer.Sound("sounds/move_1.wav"), pygame.mixer.Sound("sounds/move_2.wav"),
+                 pygame.mixer.Sound("sounds/move_3.wav")]
+    captureSound = [pygame.mixer.Sound("sounds/capture_1.wav"), pygame.mixer.Sound("sounds/capture_2.wav"),
+                    pygame.mixer.Sound("sounds/capture_3.wav")]
+    errorSound = pygame.mixer.Sound("sounds/error.wav")
+    if move is not False :
+        pastMoves.append((playerClicks[0], playerClicks[1]))
+        if not capture :
+            pygame.mixer.Sound.play(moveSound[random.randint(0, 2)])
         else :
-            highlighted = None
-        moves = []
-        captures = []
-        if highlighted is not None :
-            moves = findPiecesLegalMoves(board, highlighted, canCastle)
-            incrementing = True
-            i = 0
-            while incrementing :
-                if i < len(moves) :
-                    if board[moves[i][0]][moves[i][1]] != 30 :
-                        captures.append(moves.pop(i))
-                    else :
-                        i += 1
+            pygame.mixer.Sound.play(captureSound[random.randint(0, 2)])
+        board = [i[:] for i in move[0]]
+        canCastle = move[1]
+        if str(board[playerClicks[0][0]][playerClicks[0][1]])[0] != "1" and \
+                board[playerClicks[1][0]][playerClicks[1][1]] == 30 :
+            halfmove += 1
+        if colour == "2" :
+            colour = "1"
+            fullmove += 1
+            if move == pastMoves[len(pastMoves) - 1] and pastMoves[len(pastMoves)] == pastMoves[
+                 len(pastMoves) - 2] :
+                if doesGameEnd(board, int(colour) * 10, True, canCastle) :
+                    print("GAME OVER by " + doesGameEnd(board, int(colour) * 10, True,
+                                                        canCastle) + "!")
+                    print("FEN String of final position: ")
+                    print(encodeFen(board, 10, canCastle, halfmove, fullmove))
+            else :
+                if halfmove == 50 :
+                    if doesGameEnd(board, int(colour) * 10, True, canCastle) :
+                        print("GAME OVER by " + doesGameEnd(board, int(colour) * 10, True,
+                                                            canCastle) + "!")
+                        print("FEN String of final position: ")
+                        print(encodeFen(board, 10, canCastle, halfmove, fullmove))
+                elif doesGameEnd(board, int(colour) * 10, False, canCastle) :
+                    print("GAME OVER by " + doesGameEnd(board, int(colour) * 10, False,
+                                                        canCastle) + "!")
+                    print("FEN String of final position: ")
+                    print(encodeFen(board, 10, canCastle, halfmove, fullmove))
                 else :
-                    break
-        drawPosition(screen, board, highlighted, moves, captures)
-        clock.tick(60)
-        pygame.display.flip()
+                    return pastMoves, halfmove, fullmove, colour
+        else :
+            colour = "2"
+            if halfmove == 50 :
+                if doesGameEnd(board, int(colour) * 10, True, canCastle) :
+                    print("GAME OVER by " + doesGameEnd(board, int(colour) * 10, True,
+                                                        canCastle) + "!")
+                    print("FEN String of final position: ")
+                    print(encodeFen(board, 10, canCastle, halfmove, fullmove))
+            elif doesGameEnd(board, int(colour) * 10, False, canCastle) :
+                print(
+                    "GAME OVER by " + doesGameEnd(board, int(colour) * 10, False, canCastle) + "!")
+                print("FEN String of final position: ")
+                print(encodeFen(board, 10, canCastle, halfmove, fullmove))
+            else :
+                return pastMoves, halfmove, fullmove, colour
+    else :
+        pygame.mixer.Sound.play(errorSound)
+        return pastMoves, halfmove, fullmove, colour
+
+# GUI is thx to Eddie Sharick (YouTube) https://www.youtube.com/watch?v=EnYui0e73Rs&list=PLBwF487qi8MGU81nDGaeNE1EnNEPYWKY_&ab_channel=EddieSharick
 
 
 # function to combine drawBoard and drawPieces
@@ -782,8 +755,8 @@ def drawPieces(screen, position) :
         for file in range(8) :
             piece = str(position[rank][file])
             if piece != "30" :
-                screen.blit(pygame.transform.scale(pygame.image.load("images/" + piece + ".png"), (90, 90)),
-                            pygame.Rect(file * 100 + 5, visualRank * 100 + 5, 100, 100))
+                screen.blit(pygame.transform.scale(pygame.image.load("images/" + piece + ".png"), (100, 100)),
+                            pygame.Rect(file * 100, visualRank * 100, 100, 100))
         visualRank -= 1
 
 
@@ -796,6 +769,91 @@ def drawDots(screen, moves, captures) :
         for i in range(len(captures)) :
             screen.blit(pygame.transform.scale(pygame.image.load("images/bracket.png"), (100, 100)),
                         pygame.Rect(captures[i][1] * 100, (7 - captures[i][0]) * 100, 100, 100))
+
+
+# main driver for the GUI and handling moves
+def main(fenString=None) :
+    if fenString is None :
+        board = startBoard()
+        colour = "1"
+        canCastle = [[True, True], [True, True]]
+        fullmove = 0
+        halfmove = 0
+    else :
+        parsed = parseFen(fenString, False)
+        board = parsed["position"]
+        colour = str(parsed["colour"] // 10)
+        canCastle = parsed["canCastle"]
+        fullmove = parsed["fullmove"]
+        halfmove = parsed["halfmove"]
+    pastMoves = []
+    # pygame is initialized
+    # window is initialized
+    screen = pygame.display.set_mode(size=(800, 800))
+    # system clock is initialized
+    clock = pygame.time.Clock()
+    screen.fill(pygame.Color("white"))
+    # sounds are loaded
+    running = True
+    sqSelected = ()  # keep track of the last click in a tuple
+    playerClicks = []  # keep track of the last two player clicks in two tuples
+    while running :
+        for event in pygame.event.get() :
+            if event.type == pygame.QUIT :
+                pygame.display.quit()
+                pygame.quit()
+                exit()
+            elif event.type == pygame.MOUSEBUTTONDOWN :
+                location = pygame.mouse.get_pos()  # x,y location of mouse
+                col = location[0] // 100
+                row = (800 - location[1]) // 100
+                if sqSelected == (row, col) :
+                    sqSelected = ()  # deselect
+                    playerClicks = []  # reset player clicks
+                else :
+                    sqSelected = (row, col)
+                    if len(playerClicks) == 0 and str(board[sqSelected[0]][sqSelected[1]])[0] == colour :
+                        playerClicks.append(sqSelected)
+                    elif len(playerClicks) == 1 :
+                        if str(board[sqSelected[0]][sqSelected[1]])[0] == colour :
+                            playerClicks = [sqSelected]
+                        else :
+                            playerClicks.append(sqSelected)
+                    else :
+                        playerClicks = []
+                if len(playerClicks) == 2 :
+                    if str(board[playerClicks[0][0]][playerClicks[0][1]])[0] == colour :
+                        capture = False
+                        if board[playerClicks[1][0]][playerClicks[1][1]] != 30 or (str(board[playerClicks[0][0]][playerClicks[0][1]])[1] == "1" and playerClicks[1][0] == 7 or playerClicks[1][0] == 0):
+                            capture = True
+                        move = makeMove(board, playerClicks[0], playerClicks[1], canCastle)
+                        variables = switchTurns(move, pastMoves, playerClicks, capture, colour, halfmove, fullmove)
+                        pastMoves = variables[0]
+                        halfmove = variables[1]
+                        fullmove = variables[2]
+                        colour = variables[3]
+                    playerClicks = []
+        if len(playerClicks) > 0 and str(board[playerClicks[0][0]][playerClicks[0][1]])[0] == colour and board[playerClicks[0][0]][playerClicks[0][1]] != int(colour * 10) + 7:
+            highlighted = playerClicks[0]
+        else :
+            highlighted = None
+        moves = []
+        captures = []
+        if highlighted is not None :
+            moves = findPiecesLegalMoves(board, highlighted, canCastle)
+            incrementing = True
+            i = 0
+            while incrementing :
+                if i < len(moves) :
+                    if board[moves[i][0]][moves[i][1]] != 30 :
+                        captures.append(moves.pop(i))
+                    else :
+                        i += 1
+                else :
+                    break
+        drawPosition(screen, board, highlighted, moves, captures)
+        clock.tick(500)
+        pygame.display.flip()
 
 
 # driver code
