@@ -729,7 +729,7 @@ def makeMove(position, piecePos, endPos, canCastle, promoteTo=None) :
                 deleteEnPassant(position)
                 # handles promotion
                 if promoteTo is not None :
-                    position[endPos[0]][endPos[1]] = colour + pieceDict[promoteTo]
+                    position[endPos[0]][endPos[1]] = promoteTo
                 # create en passant target squares if pawn is pushed 2 squares
                 elif pieceID - colour == 1 and abs(piecePos[0] - endPos[0]) == 2 :
                     if colour == 10 :
@@ -862,6 +862,8 @@ def switchTurns(screen, pgn, move, playerClicks, capture, colour, halfmove, full
                             print(str(len(pgn) + 1) + ".", end=" ")
                             print(pgn[len(pgn) - 1][0], end=" ")
                         print("1/2-1/2")
+                else :
+                    return halfmove, fullmove, colour
             else :
                 if halfmove == 50 :
                     if doesGameEnd(board, int(colour) * 10, True, canCastle) :
@@ -922,7 +924,6 @@ def switchTurns(screen, pgn, move, playerClicks, capture, colour, halfmove, full
                         print(str(len(pgn) + 1) + ".", end=" ")
                         print(pgn[len(pgn) - 1][0], end=" ")
                     print("1/2-1/2")
-
             elif doesGameEnd(board, int(colour) * 10, False, canCastle) :
                 print(
                     "GAME OVER by " + doesGameEnd(board, int(colour) * 10, False, canCastle) + "!")
@@ -982,10 +983,13 @@ def main(fenString=None) :
                 location = pygame.mouse.get_pos()  # x,y location of mouse
                 col = location[0] // 100
                 row = (800 - location[1]) // 100
+                if event.button == 3 :
+                    sqSelected = ()  # deselect
+                    playerClicks = []  # reset player clicks
                 if sqSelected == (row, col) :
                     sqSelected = ()  # deselect
                     playerClicks = []  # reset player clicks
-                else :
+                elif event.button == 1 :
                     sqSelected = (row, col)
                     if len(playerClicks) == 0 and str(board[sqSelected[0]][sqSelected[1]])[0] == colour :
                         playerClicks.append(sqSelected)
@@ -1006,13 +1010,12 @@ def main(fenString=None) :
                         if isLegal(board, playerClicks[0], playerClicks[1], canCastle) :
                             promoteTo = None
                             if board[playerClicks[0][0]][playerClicks[0][1]] - (int(colour) * 10) == 1 and (
-                                    playerClicks[1][0] == 7 or playerClicks[1][1] == 0) :
+                                    playerClicks[1][0] == 7 or playerClicks[1][0] == 0) :
                                 promoting = True
                                 while promoting :
                                     promoteTo = input("What piece would you like to promote to (N/B/R/Q)? ").upper()
                                     if promoteTo == "N" or promoteTo == "B" or promoteTo == "R" or promoteTo == "Q" :
-                                        board[playerClicks[1][0]][playerClicks[1][1]] = (int(colour) * 10) + pieceDict[
-                                            promoteTo]
+                                        promoteTo = pieceDict[promoteTo] + (int(colour) * 10)
                                         promoting = False
                                     else :
                                         print("Please enter N for knight, B for bishop, R for rook, or Q for queen.")
