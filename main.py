@@ -207,6 +207,7 @@ def encodePGN(position, piecePos, endPos, canCastle, promoteTo=None) :
             pgn += reverseFileDict[piecePos[1]] + "x"
             pgn += reverseFileDict[endPos[1]] + str(endPos[0] + 1)
             if endPos[0] == 7 or endPos[0] == 0 :
+                pgn += "="
                 pgn += reversePieceDict[promoteTo - colour]
                 newPosition = [i[:] for i in position]
                 newPosition[piecePos[0]][piecePos[1]] = 30
@@ -827,20 +828,20 @@ def drawDots(screen, moves, captures) :
 
 def drawPGN(screen, pgn) :
     pygame.draw.rect(screen, "black", pygame.Rect(800, 0, 400, 800))
-    font = pygame.font.Font("fonts/fff-forward.ttf", 13)
+    font = pygame.font.Font("fonts/bahnschrift.ttf", 20)
     pgnString = [""]
     for i in range(len(pgn)) :
         if font.render(pgnString[len(pgnString) - 1], True, "white").get_rect()[2] > 320 :
             pgnString.append("")
         if len(pgnString[len(pgnString) - 1]) > 0 :
-            pgnString[len(pgnString) - 1] += "  "
+            pgnString[len(pgnString) - 1] += " "
         pgnString[len(pgnString) - 1] += str(i + 1) + ". "
         pgnString[len(pgnString) - 1] += str(pgn[i][0]) + " "
         if len(pgn[i]) > 1 :
             pgnString[len(pgnString) - 1] += str(pgn[i][1]) + " "
     for i in range(len(pgnString)) :
         if pgnString[i] != "" :
-            screen.blit(font.render(pgnString[i], True, "white"), (810, 10 + i * 25))
+            screen.blit(font.render(pgnString[i], True, "white"), (810, 10 + i * 26))
 
 
 def switchTurns(screen, pgn, move, playerClicks, capture, colour, halfmove, fullmove) :
