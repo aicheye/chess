@@ -35,7 +35,7 @@ def startBoard() :
 
 
 # function to parse fen codes - used to load positions
-def parseFen(fenString, posOnly=True) :
+def parseFEN(fenString, posOnly=True) :
     # these are variables for all the FEN fields
     position = clearBoard()
     indexed = fenString.split()
@@ -94,7 +94,7 @@ def parseFen(fenString, posOnly=True) :
                 "fullmove" : fullmove}
 
 
-def encodeFen(position, colour, canCastle, halfmove, fullmove) :
+def encodeFEN(position, colour, canCastle, halfmove, fullmove) :
     fenString = ""
     enPassant = " -"
     blanks = 0
@@ -155,7 +155,7 @@ def isAmbiguous(position, piecePos, endPos, canCastle) :
     for rank in range(8) :
         for file in range(8) :
             if position[rank][file] == pieceID and piecePos != (rank, file) and endPos in findPiecesLegalMoves(position,
-                                                                                                               piecePos,
+                                                                                                               (rank, file),
                                                                                                                canCastle) :
                 if rank == piecePos[0] :
                     sameRank = True
@@ -244,10 +244,10 @@ def encodePGN(position, piecePos, endPos, canCastle, promoteTo=None) :
             pgn += "K"
         ambiguous = isAmbiguous(position, piecePos, endPos, canCastle)
         if ambiguous[0] :
-            pgn += str(endPos[0] + 1)
+            pgn += reverseFileDict[piecePos[1]]
         if ambiguous[1] :
-            pgn += reverseFileDict[endPos[1]]
-        if position[endPos[0]][endPos[1]] == 30 :
+            pgn += str(piecePos[0] + 1)
+        if position[endPos[0]][endPos[1]] == 30 or position[endPos[0]][endPos[1]] - oppositeColour == 7 :
             pgn += reverseFileDict[endPos[1]] + str(endPos[0] + 1)
         else :
             pgn += "x"
@@ -843,51 +843,11 @@ def switchTurns(screen, pgn, move, playerClicks, capture, colour, halfmove, full
         if colour == "2" :
             colour = "1"
             fullmove += 1
-            if len(pgn) >= 4 :
-                if pgn[len(pgn) - 1] == pgn[len(pgn) - 3] and pgn[len(pgn) - 2] == pgn[len(pgn) - 4] :
-                    if doesGameEnd(board, int(colour) * 10, True, canCastle) :
-                        print("GAME OVER by " + doesGameEnd(board, int(colour) * 10, True, canCastle) + "!")
-                        print("FEN String of final position: ")
-                        print(encodeFen(board, 10, canCastle, halfmove, fullmove))
-                        print("PGN of game: ")
-                        for i in range(len(pgn) - 1) :
-                            print(str(i + 1) + ".", end=" ")
-                            print(pgn[i][0], end=" ")
-                            print(pgn[i][1], end=" ")
-                        if len(pgn[len(pgn) - 1]) == 2 :
-                            print(str(len(pgn) + 1) + ".", end=" ")
-                            print(pgn[len(pgn) - 1][0], end=" ")
-                            print(pgn[len(pgn) - 1][1], end=" ")
-                        else :
-                            print(str(len(pgn) + 1) + ".", end=" ")
-                            print(pgn[len(pgn) - 1][0], end=" ")
-                        print("1/2-1/2")
-                else :
-                    return halfmove, fullmove, colour
-            else :
-                if halfmove == 50 :
-                    if doesGameEnd(board, int(colour) * 10, True, canCastle) :
-                        print("GAME OVER by " + doesGameEnd(board, int(colour) * 10, True, canCastle) + "!")
-                        print("FEN String of final position: ")
-                        print(encodeFen(board, 10, canCastle, halfmove, fullmove))
-                        print("PGN of game: ")
-                        for i in range(len(pgn) - 1) :
-                            print(str(i + 1) + ".", end=" ")
-                            print(pgn[i][0], end=" ")
-                            print(pgn[i][1], end=" ")
-                        if len(pgn[len(pgn) - 1]) == 2 :
-                            print(str(len(pgn) + 1) + ".", end=" ")
-                            print(pgn[len(pgn) - 1][0], end=" ")
-                            print(pgn[len(pgn) - 1][1], end=" ")
-                        else :
-                            print(str(len(pgn) + 1) + ".", end=" ")
-                            print(pgn[len(pgn) - 1][0], end=" ")
-                        print("1/2-1/2")
-                elif doesGameEnd(board, int(colour) * 10, False, canCastle) :
-                    print("GAME OVER by " + doesGameEnd(board, int(colour) * 10, False,
-                                                        canCastle) + "!")
+            if len(pgn) >= 4 and pgn[len(pgn) - 1] == pgn[len(pgn) - 3] and pgn[len(pgn) - 2] == pgn[len(pgn) - 4] :
+                if doesGameEnd(board, int(colour) * 10, True, canCastle) :
+                    print("GAME OVER by " + doesGameEnd(board, int(colour) * 10, True, canCastle) + "!")
                     print("FEN String of final position: ")
-                    print(encodeFen(board, 10, canCastle, halfmove, fullmove))
+                    print(encodeFEN(board, 10, canCastle, halfmove, fullmove))
                     print("PGN of game: ")
                     for i in range(len(pgn) - 1) :
                         print(str(i + 1) + ".", end=" ")
@@ -900,9 +860,45 @@ def switchTurns(screen, pgn, move, playerClicks, capture, colour, halfmove, full
                     else :
                         print(str(len(pgn) + 1) + ".", end=" ")
                         print(pgn[len(pgn) - 1][0], end=" ")
-                    print("0-1")
+                    print("1/2-1/2")
+            elif halfmove == 50 :
+                if doesGameEnd(board, int(colour) * 10, True, canCastle) :
+                    print("GAME OVER by " + doesGameEnd(board, int(colour) * 10, True, canCastle) + "!")
+                    print("FEN String of final position: ")
+                    print(encodeFEN(board, 10, canCastle, halfmove, fullmove))
+                    print("PGN of game: ")
+                    for i in range(len(pgn) - 1) :
+                        print(str(i + 1) + ".", end=" ")
+                        print(pgn[i][0], end=" ")
+                        print(pgn[i][1], end=" ")
+                    if len(pgn[len(pgn) - 1]) == 2 :
+                        print(str(len(pgn) + 1) + ".", end=" ")
+                        print(pgn[len(pgn) - 1][0], end=" ")
+                        print(pgn[len(pgn) - 1][1], end=" ")
+                    else :
+                        print(str(len(pgn) + 1) + ".", end=" ")
+                        print(pgn[len(pgn) - 1][0], end=" ")
+                    print("1/2-1/2")
+            elif doesGameEnd(board, int(colour) * 10, False, canCastle) :
+                print("GAME OVER by " + doesGameEnd(board, int(colour) * 10, False,
+                                                    canCastle) + "!")
+                print("FEN String of final position: ")
+                print(encodeFEN(board, 10, canCastle, halfmove, fullmove))
+                print("PGN of game: ")
+                for i in range(len(pgn) - 1) :
+                    print(str(i + 1) + ".", end=" ")
+                    print(pgn[i][0], end=" ")
+                    print(pgn[i][1], end=" ")
+                if len(pgn[len(pgn) - 1]) == 2 :
+                    print(str(len(pgn) + 1) + ".", end=" ")
+                    print(pgn[len(pgn) - 1][0], end=" ")
+                    print(pgn[len(pgn) - 1][1], end=" ")
                 else :
-                    return halfmove, fullmove, colour
+                    print(str(len(pgn) + 1) + ".", end=" ")
+                    print(pgn[len(pgn) - 1][0], end=" ")
+                print("0-1")
+            else :
+                return halfmove, fullmove, colour
         else :
             colour = "2"
             if halfmove == 50 :
@@ -910,7 +906,7 @@ def switchTurns(screen, pgn, move, playerClicks, capture, colour, halfmove, full
                     print("GAME OVER by " + doesGameEnd(board, int(colour) * 10, True,
                                                         canCastle) + "!")
                     print("FEN String of final position: ")
-                    print(encodeFen(board, 10, canCastle, halfmove, fullmove))
+                    print(encodeFEN(board, 10, canCastle, halfmove, fullmove))
                     print("PGN of game: ")
                     for i in range(len(pgn) - 1) :
                         print(str(i + 1) + ".", end=" ")
@@ -928,7 +924,7 @@ def switchTurns(screen, pgn, move, playerClicks, capture, colour, halfmove, full
                 print(
                     "GAME OVER by " + doesGameEnd(board, int(colour) * 10, False, canCastle) + "!")
                 print("FEN String of final position: ")
-                print(encodeFen(board, 10, canCastle, halfmove, fullmove))
+                print(encodeFEN(board, 10, canCastle, halfmove, fullmove))
                 print("PGN of game: ")
                 for i in range(len(pgn) - 1) :
                     print(str(i + 1) + ".", end=" ")
@@ -955,7 +951,7 @@ def main(fenString=None) :
         fullmove = 0
         halfmove = 0
     else :
-        parsed = parseFen(fenString, False)
+        parsed = parseFEN(fenString, False)
         board = parsed["position"]
         colour = str(parsed["colour"] // 10)
         canCastle = parsed["canCastle"]
@@ -1003,14 +999,12 @@ def main(fenString=None) :
                 if len(playerClicks) == 2 :
                     if str(board[playerClicks[0][0]][playerClicks[0][1]])[0] == colour :
                         capture = False
-                        if board[playerClicks[1][0]][playerClicks[1][1]] != 30 or (
-                                str(board[playerClicks[0][0]][playerClicks[0][1]])[1] == "1" and (
-                                playerClicks[1][0] == 7 or playerClicks[1][0] == 0)) :
+                        if (board[playerClicks[1][0]][playerClicks[1][1]] != 30 and str(board[playerClicks[1][0]][playerClicks[1][1]])[1] != "7") or (str(board[playerClicks[0][0]][playerClicks[0][1]])[1] == "1" and (playerClicks[1][0] == 7 or playerClicks[1][0] == 0)) or (str(board[playerClicks[0][0]][playerClicks[0][1]])[1] == "1" and str(board[playerClicks[1][0]][playerClicks[1][1]])[0] == "7"):
                             capture = True
                         if isLegal(board, playerClicks[0], playerClicks[1], canCastle) :
                             promoteTo = None
-                            if board[playerClicks[0][0]][playerClicks[0][1]] - (int(colour) * 10) == 1 and (
-                                    playerClicks[1][0] == 7 or playerClicks[1][0] == 0) :
+                            if board[playerClicks[0][0]][playerClicks[0][1]] - (int(colour) * 10) == 1 and \
+                                    (playerClicks[1][0] == 7 or playerClicks[1][0] == 0) :
                                 promoting = True
                                 while promoting :
                                     promoteTo = input("What piece would you like to promote to (N/B/R/Q)? ").upper()
@@ -1021,8 +1015,11 @@ def main(fenString=None) :
                                         print("Please enter N for knight, B for bishop, R for rook, or Q for queen.")
                             if colour == "1" :
                                 pgn.append([encodePGN(board, playerClicks[0], playerClicks[1], canCastle, promoteTo)])
+                                print(str(len(pgn) + 1) + ".", end=" ")
+                                print(pgn[len(pgn) - 1][0], end=" ")
                             else :
                                 pgn[len(pgn) - 1].append(encodePGN(board, playerClicks[0], playerClicks[1], canCastle, promoteTo))
+                                print(pgn[len(pgn) - 1][1])
                             move = makeMove(board, playerClicks[0], playerClicks[1], canCastle, promoteTo)
                             variables = switchTurns(screen, pgn, move, playerClicks, capture, colour, halfmove, fullmove)
                             if variables is not None :
@@ -1045,7 +1042,8 @@ def main(fenString=None) :
             i = 0
             while incrementing :
                 if i < len(moves) :
-                    if board[moves[i][0]][moves[i][1]] != 30 :
+                    if (board[moves[i][0]][moves[i][1]] != 30 and str(board[moves[i][0]][moves[i][1]])[1] != "7") or \
+                            (str(board[moves[i][0]][moves[i][1]])[1] == "7" and str(board[highlighted[0]][highlighted[1]])[1] == "1"):
                         captures.append(moves.pop(i))
                     else :
                         i += 1
