@@ -825,6 +825,24 @@ def drawDots(screen, moves, captures) :
                         pygame.Rect(captures[i][1] * 100, (7 - captures[i][0]) * 100, 100, 100))
 
 
+def drawPGN(screen, pgn) :
+    pygame.draw.rect(screen, "black", pygame.Rect(800, 0, 400, 800))
+    font = pygame.font.Font("fonts/fff-forward.ttf", 13)
+    pgnString = [""]
+    for i in range(len(pgn)) :
+        if font.render(pgnString[len(pgnString) - 1], True, "white").get_rect()[2] > 320 :
+            pgnString.append("")
+        if len(pgnString[len(pgnString) - 1]) > 0 :
+            pgnString[len(pgnString) - 1] += "  "
+        pgnString[len(pgnString) - 1] += str(i + 1) + ". "
+        pgnString[len(pgnString) - 1] += str(pgn[i][0]) + " "
+        if len(pgn[i]) > 1 :
+            pgnString[len(pgnString) - 1] += str(pgn[i][1]) + " "
+    for i in range(len(pgnString)) :
+        if pgnString[i] != "" :
+            screen.blit(font.render(pgnString[i], True, "white"), (810, 10 + i * 25))
+
+
 def switchTurns(screen, pgn, move, playerClicks, capture, colour, halfmove, fullmove) :
     moveSound = [pygame.mixer.Sound("sounds/move_1.wav"), pygame.mixer.Sound("sounds/move_2.wav"),
                  pygame.mixer.Sound("sounds/move_3.wav")]
@@ -961,10 +979,10 @@ def main(fenString=None) :
     # pygame is initialized
     pygame.init()
     # window is initialized
-    screen = pygame.display.set_mode(size=(800, 800))
+    screen = pygame.display.set_mode(size=(1200, 800))
     # system clock is initialized
     clock = pygame.time.Clock()
-    screen.fill(pygame.Color("white"))
+    screen.fill(pygame.Color("black"))
     # sounds are loaded
     running = True
     sqSelected = ()  # keep track of the last click in a tuple
@@ -975,7 +993,7 @@ def main(fenString=None) :
                 pygame.display.quit()
                 pygame.quit()
                 exit()
-            elif event.type == pygame.MOUSEBUTTONDOWN :
+            elif event.type == pygame.MOUSEBUTTONDOWN and pygame.mouse.get_pos()[0] <= 800 :
                 location = pygame.mouse.get_pos()  # x,y location of mouse
                 col = location[0] // 100
                 row = (800 - location[1]) // 100
@@ -999,7 +1017,7 @@ def main(fenString=None) :
                 if len(playerClicks) == 2 :
                     if str(board[playerClicks[0][0]][playerClicks[0][1]])[0] == colour :
                         capture = False
-                        if (board[playerClicks[1][0]][playerClicks[1][1]] != 30 and str(board[playerClicks[1][0]][playerClicks[1][1]])[1] != "7") or (str(board[playerClicks[0][0]][playerClicks[0][1]])[1] == "1" and (playerClicks[1][0] == 7 or playerClicks[1][0] == 0)) or (str(board[playerClicks[0][0]][playerClicks[0][1]])[1] == "1" and str(board[playerClicks[1][0]][playerClicks[1][1]])[0] == "7"):
+                        if (board[playerClicks[1][0]][playerClicks[1][1]] != 30 and str(board[playerClicks[1][0]][playerClicks[1][1]])[1] != "7") or (str(board[playerClicks[0][0]][playerClicks[0][1]])[1] == "1" and (playerClicks[1][0] == 7 or playerClicks[1][0] == 0)) or (str(board[playerClicks[0][0]][playerClicks[0][1]])[1] == "1" and str(board[playerClicks[1][0]][playerClicks[1][1]])[1] == "7"):
                             capture = True
                         if isLegal(board, playerClicks[0], playerClicks[1], canCastle) :
                             promoteTo = None
@@ -1015,11 +1033,8 @@ def main(fenString=None) :
                                         print("Please enter N for knight, B for bishop, R for rook, or Q for queen.")
                             if colour == "1" :
                                 pgn.append([encodePGN(board, playerClicks[0], playerClicks[1], canCastle, promoteTo)])
-                                print(str(len(pgn) + 1) + ".", end=" ")
-                                print(pgn[len(pgn) - 1][0], end=" ")
                             else :
                                 pgn[len(pgn) - 1].append(encodePGN(board, playerClicks[0], playerClicks[1], canCastle, promoteTo))
-                                print(pgn[len(pgn) - 1][1])
                             move = makeMove(board, playerClicks[0], playerClicks[1], canCastle, promoteTo)
                             variables = switchTurns(screen, pgn, move, playerClicks, capture, colour, halfmove, fullmove)
                             if variables is not None :
@@ -1050,6 +1065,7 @@ def main(fenString=None) :
                 else :
                     break
         drawPosition(screen, board, highlighted, moves, captures)
+        drawPGN(screen, pgn)
         clock.tick(500)
         pygame.display.flip()
 
