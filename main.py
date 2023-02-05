@@ -5,7 +5,7 @@ import random
 from stockfish import Stockfish
 import time
 
-stockfish = Stockfish("/Users/seanx/PycharmProjects/Chess/stockfish_15.1_win_x64_avx2/stockfish-windows-2022-x86-64-avx2.exe")
+stockfish = Stockfish("stockfish_15.1_win_x64_avx2/stockfish-windows-2022-x86-64-avx2.exe")
 stockfish.set_elo_rating(600)
 
 # dictionaries - used for functions
@@ -14,17 +14,6 @@ reversePieceDict = {0 : ".", 1 : "P", 2 : "N", 3 : "B", 4 : "R", 5 : "Q", 6 : "K
                     "0" : ".", "1" : "P", "2" : "N", "3" : "B", "4" : "R", "5" : "Q", "6" : "K", "7" : "."}
 fileDict = {"a" : 0, "b" : 1, "c" : 2, "d" : 3, "e" : 4, "f" : 5, "g" : 6, "h" : 7}
 reverseFileDict = ["a", "b", "c", "d", "e", "f", "g", "h"]
-
-
-def resource_path(relative_path):
-    """ Get absolute path to resource, works for dev and for PyInstaller """
-    try:
-        # PyInstaller creates a temp folder and stores path in _MEIPASS
-        base_path = sys._MEIPASS
-    except Exception:
-        base_path = os.path.abspath(".")
-
-    return os.path.join(base_path, relative_path)
 
 
 # clears board to empty - used for some functions
@@ -811,8 +800,8 @@ def drawPosition(screen, position, highlighted, lastMove, moves, captures) :
 
 # function to draw a board
 def drawBoard(screen, highlighted, lastMove) :
-    colours = [pygame.Color("white"), pygame.Color("tan")]
-    lastMoveColours = [pygame.Color(90, 255, 87), pygame.Color(155, 255, 153)]
+    colours = [pygame.Color(255, 255, 255), pygame.Color("tan")]
+    lastMoveColours = [pygame.Color(101, 214, 110), pygame.Color(175, 222, 179)]
     for rank in range(8) :
         for file in range(8) :
             colour = colours[(rank + file) % 2]
@@ -1008,8 +997,121 @@ def switchTurns(pgn, move, playerClicks, capture, colour, halfmove, fullmove) :
                 return halfmove, fullmove, colour
 
 
-# main driver for the GUI and handling moves
 def main(fenString=None) :
+    if fenString is None :
+        board = startBoard()
+        colour = "1"
+        canCastle = [[True, True], [True, True]]
+        fullmove = 0
+        halfmove = 0
+    else :
+        parsed = parseFEN(fenString, False)
+        board = parsed["position"]
+        colour = str(parsed["colour"] // 10)
+        canCastle = parsed["canCastle"]
+        fullmove = parsed["fullmove"]
+        halfmove = parsed["halfmove"]
+    pgn = []
+    # pygame is initialized
+    pygame.init()
+    # window is initialized
+    screen = pygame.display.set_mode(size=(1200, 800))
+    # system clock is initialized
+    clock = pygame.time.Clock()
+    screen.fill(pygame.Color("black"))
+    # sounds are loaded
+    running = True
+    sqSelected = ()  # keep track of the last click in a tuple
+    playerClicks = []  # keep track of the last two player clicks in two tuples
+    lastMove = None
+    while running :
+        for event in pygame.event.get() :
+            if event.type == pygame.QUIT :
+                pygame.display.quit()
+                pygame.quit()
+                exit()
+            elif event.type == pygame.MOUSEBUTTONDOWN and pygame.mouse.get_pos()[0] <= 800 :
+                location = pygame.mouse.get_pos()  # x,y location of mouse
+                col = location[0] // 100
+                row = (800 - location[1]) // 100
+                if event.button == 3 :
+                    sqSelected = ()  # deselect
+                    playerClicks = []  # reset player clicks
+                if sqSelected == (row, col) :
+                    sqSelected = ()  # deselect
+                    playerClicks = []  # reset player clicks
+                elif event.button == 1 :
+                    sqSelected = (row, col)
+                    if len(playerClicks) == 0 and str(board[sqSelected[0]][sqSelected[1]])[0] == colour :
+                        playerClicks.append(sqSelected)
+                    elif len(playerClicks) == 1 :
+                        if str(board[sqSelected[0]][sqSelected[1]])[0] == colour :
+                            playerClicks = [sqSelected]
+                        else :
+                            playerClicks.append(sqSelected)
+                    else :
+                        playerClicks = []
+                if len(playerClicks) == 2 :
+                    if str(board[playerClicks[0][0]][playerClicks[0][1]])[0] == colour :
+                        capture = False
+                        if (board[playerClicks[1][0]][playerClicks[1][1]] != 30 and str(board[playerClicks[1][0]][playerClicks[1][1]])[1] != "7") or (str(board[playerClicks[0][0]][playerClicks[0][1]])[1] == "1" and (playerClicks[1][0] == 7 or playerClicks[1][0] == 0)) or (str(board[playerClicks[0][0]][playerClicks[0][1]])[1] == "1" and str(board[playerClicks[1][0]][playerClicks[1][1]])[1] == "7"):
+                            capture = True
+                        if isLegal(board, playerClicks[0], playerClicks[1], canCastle) :
+                            promoteTo = None
+                            if board[playerClicks[0][0]][playerClicks[0][1]] - (int(colour) * 10) == 1 and \
+                                    (playerClicks[1][0] == 7 or playerClicks[1][0] == 0) :
+                                promoting = True
+                                while promoting :
+                                    promoteTo = input("What piece would you like to promote to (N/B/R/Q)? ").upper()
+                                    if promoteTo == "N" or promoteTo == "B" or promoteTo == "R" or promoteTo == "Q" :
+                                        promoteTo = pieceDict[promoteTo] + (int(colour) * 10)
+                                        promoting = False
+                                    else :
+                                        print("Please enter N for knight, B for bishop, R for rook, or Q for queen.")
+                            if colour == "1" :
+                                pgn.append([encodePGN(board, playerClicks[0], playerClicks[1], canCastle, promoteTo)])
+                            else :
+                                pgn[len(pgn) - 1].append(encodePGN(board, playerClicks[0], playerClicks[1], canCastle, promoteTo))
+                            move = makeMove(board, playerClicks[0], playerClicks[1], canCastle, promoteTo)
+                            variables = switchTurns(pgn, move, playerClicks, capture, colour, halfmove, fullmove)
+                            if variables is not None :
+                                halfmove = variables[0]
+                                fullmove = variables[1]
+                                colour = variables[2]
+                            lastMove = playerClicks[0], playerClicks[1]
+                        else :
+                            pygame.mixer.Sound.play(pygame.mixer.Sound("sounds/error.wav"))
+                    playerClicks = []
+        if len(playerClicks) > 0 and str(board[playerClicks[0][0]][playerClicks[0][1]])[0] == colour and \
+                board[playerClicks[0][0]][playerClicks[0][1]] != int(colour * 10) + 7 :
+            highlighted = playerClicks[0]
+        else :
+            highlighted = None
+        moves = []
+        captures = []
+        if highlighted is not None :
+            moves = findPiecesLegalMoves(board, highlighted, canCastle)
+            incrementing = True
+            i = 0
+            while incrementing :
+                if i < len(moves) :
+                    if (board[moves[i][0]][moves[i][1]] != 30 and str(board[moves[i][0]][moves[i][1]])[1] != "7") or \
+                            (str(board[moves[i][0]][moves[i][1]])[1] == "7" and str(board[highlighted[0]][highlighted[1]])[1] == "1"):
+                        captures.append(moves.pop(i))
+                    else :
+                        i += 1
+                else :
+                    break
+        drawPosition(screen, board, highlighted, lastMove, moves, captures)
+        if len(pgn) > 0 :
+            drawPGN(screen, pgn)
+        clock.tick(500)
+        pygame.display.flip()
+
+
+# main driver for the GUI and handling moves
+def playStockfish(fenString=None, rating=1000) :
+    stockfish.set_elo_rating(rating)
     if fenString is None :
         board = startBoard()
         colour = "1"
@@ -1065,7 +1167,7 @@ def main(fenString=None) :
                                 (playerClicks[1][0] == 7 or playerClicks[1][0] == 0) :
                             promoting = True
                             while promoting :
-                                promoteTo = input("What piece would you like to promote to (N/B/R/Q)? ").upper()
+                                promoteTo = stockfishMove[4].upper()
                                 if promoteTo == "N" or promoteTo == "B" or promoteTo == "R" or promoteTo == "Q" :
                                     promoteTo = pieceDict[promoteTo] + (int(colour) * 10)
                                     promoting = False
@@ -1166,11 +1268,12 @@ def main(fenString=None) :
                 else :
                     break
         drawPosition(screen, board, highlighted, lastMove, moves, captures)
-        drawPGN(screen, pgn)
+        if len(pgn) > 0 :
+            drawPGN(screen, pgn)
         clock.tick(500)
         pygame.display.flip()
 
 
 # driver code
 if __name__ == '__main__' :
-    main()
+    playStockfish()
