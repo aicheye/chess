@@ -1,11 +1,9 @@
-import sys
-import os
 import pygame
 import random
 from stockfish import Stockfish
 import time
 
-stockfish = Stockfish("stockfish_15.1_win_x64_avx2/stockfish-windows-2022-x86-64-avx2.exe")
+stockfish = Stockfish("stockfish/stockfish-windows-x86-64-avx2.exe", depth=20, parameters={"Threads": 1, "Minimum Thinking Time": 100})
 stockfish.set_elo_rating(600)
 
 # dictionaries - used for functions
